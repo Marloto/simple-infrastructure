@@ -1,8 +1,10 @@
+import {createGenerator, handleSse} from './completion.js'
+
 /**
  * LlmIntegrationManager - Verwaltet die Integration eines LLM in die Systemvisualisierung
  * Konzentriert sich auf die Kernfunktionalität der LLM-Kommunikation und Datenmodell-Updates
  */
-class LlmIntegrationManager {
+export class LlmIntegrationManager {
     constructor(options = {}) {
         this.dataManager = null;
         this.generator = null;

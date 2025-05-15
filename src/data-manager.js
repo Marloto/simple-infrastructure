@@ -44,10 +44,9 @@ function saveSystemData(data) {
  * DataManager - Zentrale Klasse zur Verwaltung der Systemdaten
  * Dient als Single Source of Truth für alle anderen Komponenten
  */
-class DataManager {
+export class DataManager {
     constructor() {
         this.data = loadSystemData();
-        this.visualizer = null;
         this.eventListeners = {
             'dataChanged': []
         };
@@ -71,14 +70,6 @@ class DataManager {
             this.data = data;
         }
         this.notifyListeners('dataChanged');
-    }
-
-    /**
-     * Registriert den Visualizer
-     * @param {SystemVisualizer} visualizer - Die Visualizer-Instanz
-     */
-    registerVisualizer(visualizer) {
-        this.visualizer = visualizer;
     }
 
     /**
@@ -150,13 +141,12 @@ class DataManager {
             } else {
                 system.groups = [system.group];
             }
-
-            // Legacy-Feld behalten für Abwärtskompatibilität
-            // Oder entscheiden Sie, es zu entfernen mit: delete system.group;
-            system.group = system.groups[0]; // Erste Gruppe als Legacy-Wert beibehalten
+            delete system.group;
+            return;
         }
+
         // Fall 3: system hat weder group noch groups
-        else if (!system.groups) {
+        if (!system.groups) {
             system.groups = [];
             delete system.group; // Sicherstellen, dass kein leeres group-Feld existiert
         }

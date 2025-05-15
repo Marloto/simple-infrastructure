@@ -1,10 +1,18 @@
+import { SimulationManager } from './simulation.js';
+import { NodeCache } from './node-cache.js';
+
 /**
  * SystemVisualizer - Visualisiert IT-Systeme und deren Abhängigkeiten als interaktiven Graphen
  */
-class SystemVisualizer {
+export class SystemVisualizer {
     constructor(containerId, dataManager) {
         this.containerId = containerId;
         this.dataManager = dataManager;
+
+        this.eventListeners = {
+            'dependency-click': [],
+            'toggle-fixed': [],
+        };
 
         // Getter für Zugriff auf aktuelle Daten
         Object.defineProperty(this, 'data', {
@@ -147,7 +155,10 @@ class SystemVisualizer {
             chargeStrength: -300,
             collisionRadius: 60,
             groupForceStrength: 0.5,
-            onTick: () => this.onSimulationTick()
+            onTick: () => this.onSimulationTick(),
+            onToggleFixed:(id, state) => {
+                this.notifyListeners('toggle-fixed', { id, state });
+            },
         });
 
         // Pfeilspitzen für die Links
@@ -234,11 +245,9 @@ class SystemVisualizer {
                     .duration(500)
                     .style("opacity", 0);
             })
-            .on("click", (event, d) => {
-                if (!this.dependencyManager.isConnectionModeActive) {
-                    this.dependencyManager.showLinkControls(event, d);
-                    event.stopPropagation();
-                }
+            .on("click", (event, data) => {
+                this.notifyListeners('dependency-click', { event, data });
+                event.stopPropagation();
             });;
 
         // Knoten erstellen
@@ -498,11 +507,10 @@ class SystemVisualizer {
             });
 
             if (groupNodes.length === 0) return "translate(0,0)";
-            
+
             const points = groupNodes.map(n => [n.x, n.y]);
             const centroid = this.getCentroid(points);
-            
-            console.log(groupName, groupNodes, centroid);
+
             return `translate(${centroid[0]},${centroid[1] - 60})`;
         });
     }
@@ -800,6 +808,33 @@ class SystemVisualizer {
     }
 
     /**
+     * Gibt den Knoten mit der angegebenen ID aus der aktuellen Simulation zurück
+     * @param {string} systemId - Die ID des zu findenden Systems
+     * @returns {Object|null} Das Knotenobjekt oder null, wenn nicht gefunden
+     */
+    getNodeById(systemId) {
+        return this.simulationManager.getNodeById(systemId);
+    }
+
+    /**
+     * Prüft, ob ein Knoten fixiert ist
+     * @param {string} systemId - Die ID des zu prüfenden Systems
+     * @returns {boolean} True, wenn der Knoten fixiert ist, false sonst oder wenn nicht gefunden
+     */
+    isNodeFixed(systemId) {
+        return this.simulationManager.isNodeFixed(systemId);
+    }
+
+    /**
+     * Schaltet den fixierten Zustand eines Knotens um
+     * @param {string} systemId - Die ID des zu ändernden Systems
+     * @returns {boolean} Der neue Fixierungszustand oder null, wenn der Knoten nicht gefunden wurde
+     */
+    toggleNodeFixed(systemId) {
+        return this.simulationManager.toggleNodeFixed(systemId);
+    }
+
+    /**
      * Zeigt die Systemdetails im Overlay an
      */
     showSystemDetails(system) {
@@ -888,6 +923,19 @@ class SystemVisualizer {
 
         // Details-Panel anzeigen
         detailsPanel.classList.add('active');
+
+        // Button-Zustand anpassen
+        const toggleFixButton = document.querySelector('.toggle-fix-btn');
+        const isFixed = this.isNodeFixed(system.id);
+        if (toggleFixButton) {
+            if (isFixed) {
+                toggleFixButton.classList.add('active');
+                toggleFixButton.title = 'Position freigeben';
+            } else {
+                toggleFixButton.classList.remove('active');
+                toggleFixButton.title = 'Position fixieren';
+            }
+        }
     }
 
     /**
@@ -1122,5 +1170,26 @@ class SystemVisualizer {
             this.nodeElements.call(this.simulationManager.createDragBehavior());
         }
         this.dragDisabled = false;
+    }
+
+    /**
+     * Fügt einen Event-Listener hinzu
+     * @param {string} event - Der Event-Name (z.B. 'dataChanged')
+     * @param {Function} callback - Die Callback-Funktion
+     */
+    addEventListener(event, callback) {
+        if (this.eventListeners[event]) {
+            this.eventListeners[event].push(callback);
+        }
+    }
+
+    /**
+     * Benachrichtigt alle Listener über ein Event
+     * @param {string} event - Der Event-Name
+     */
+    notifyListeners(event, data) {
+        if (this.eventListeners[event]) {
+            this.eventListeners[event].forEach(callback => callback(data));
+        }
     }
 }

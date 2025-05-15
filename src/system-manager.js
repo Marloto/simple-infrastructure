@@ -2,7 +2,7 @@
  * System Manager - Verwaltet das Hinzufügen, Bearbeiten und Löschen von Systemen
  */
 
-class SystemManager {
+export class SystemManager {
     constructor() {
         this.initialized = false;
         this.currentEditingSystem = null;
@@ -24,15 +24,6 @@ class SystemManager {
         this.initialized = true;
         console.log('SystemManager wurde initialisiert');
     }
-
-    /**
-     * Zeigt das System-Modal für Hinzufügen oder Bearbeiten an
-     * @param {string} systemId - Die ID des zu bearbeitenden Systems (null für Hinzufügen)
-     */
-    /**
- * Änderungen am SystemManager für Multi-Gruppen-Unterstützung
- * Diese Funktionen sollten in die SystemManager-Klasse integriert werden
- */
 
     /**
      * Zeigt das System-Modal für Hinzufügen oder Bearbeiten an

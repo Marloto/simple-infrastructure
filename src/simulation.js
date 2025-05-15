@@ -1,7 +1,7 @@
 /**
  * SimulationManager - Handles d3 force simulation logic separate from visualization
  */
-class SimulationManager {
+export class SimulationManager {
     constructor(options = {}) {
         this.options = {
             linkDistance: options.linkDistance || 150,
@@ -23,6 +23,69 @@ class SimulationManager {
         // Callbacks
         this.onTick = options.onTick || (() => { });
         this.onEnd = options.onEnd || (() => { });
+        this.onToggleFixed = options.onToggleFixed || (() => { });
+    }
+
+    /**
+     * Gibt den Knoten mit der angegebenen ID aus der aktuellen Simulation zurück
+     * @param {string} systemId - Die ID des zu findenden Systems
+     * @returns {Object|null} Das Knotenobjekt oder null, wenn nicht gefunden
+     */
+    getNodeById(systemId) {
+        return this.simulation.nodes().find(node => node.id === systemId);
+    }
+
+    /**
+     * Prüft, ob ein Knoten fixiert ist
+     * @param {string} systemId - Die ID des zu prüfenden Systems
+     * @returns {boolean} True, wenn der Knoten fixiert ist, false sonst oder wenn nicht gefunden
+     */
+    isNodeFixed(systemId, curNode = undefined) {
+        const node = curNode || this.getNodeById(systemId);
+        return node ? !!node.isFixed : false;
+    }
+
+    toggleNodeFixed(systemId) {
+        const node = this.getNodeById(systemId);
+        if (!node) return null;
+        const isFixed = this.isNodeFixed(systemId, node);
+        const newState = !isFixed;
+        this.setNodeFixed(systemId, newState, node);
+    }
+
+    setNodeFixed(systemId, state, curNode = undefined) {
+        const node = curNode || this.getNodeById(systemId);
+        if (!node) return null;
+
+        if (!state) {
+            // Fixierung aufheben
+            node.isFixed = false;
+            node.fx = null;
+            node.fy = null;
+        } else {
+            // Knoten an aktueller Position fixieren
+            node.isFixed = true;
+            node.fx = node.x;
+            node.fy = node.y;
+        }
+
+        // Aktualisiere Cache
+        if (this.nodeCache && node.id) {
+            this.nodeCache.set(node.id, {
+                x: node.x,
+                y: node.y,
+                vx: node.vx || 0,
+                vy: node.vy || 0,
+                isFixed: node.isFixed
+            });
+        }
+
+        // Simulation leicht neu starten
+        this.restart(0.1);
+
+        this.onToggleFixed(systemId, state);
+
+        return node.isFixed;
     }
 
     /**
@@ -143,10 +206,13 @@ class SimulationManager {
                     node.fy = cachedPosition.y;
 
                     // Schedule release of fixed position
-                    setTimeout(() => {
-                        node.fx = null;
-                        node.fy = null;
-                    }, 500);
+                    node.isFixed = !!cachedPosition.isFixed;
+                    if(!node.isFixed) {
+                        setTimeout(() => {
+                            node.fx = null;
+                            node.fy = null;
+                        }, 500);
+                    }
 
                     cacheHits++;
                 }
@@ -299,6 +365,7 @@ class SimulationManager {
         if (!event.active) this.simulation.alphaTarget(0.3).restart();
         d.fx = d.x;
         d.fy = d.y;
+        this.setNodeFixed(d.id, true, d);
     }
 
     /**
@@ -322,54 +389,16 @@ class SimulationManager {
                 y: d.y,
                 vx: 0,
                 vy: 0,
-                group: d.group
+                isFixed: d.isFixed || false
             });
         }
 
         // Keep position fixed where user dropped it
         // Or release: 
-        d.fx = null;
-        d.fy = null;
+        //d.fx = null;
+        //d.fy = null;
     }
 }
-
-/**
- * Clustering-Kraft für d3.js (wird für die Gruppierung benötigt)
- */
-d3.forceCluster = function () {
-    let strength = 0.1;
-    let centers = {};
-    let nodes = [];
-
-    function force(alpha) {
-        // Für jeden Knoten
-        nodes.forEach(d => {
-            if (!d.group) return; // Überspringen, wenn kein Gruppenattribut
-
-            const groupCenter = centers[d.group];
-            if (!groupCenter) return;
-
-            // Anziehungskraft zum Gruppenzentrum
-            const k = strength * alpha;
-            d.vx += (groupCenter.x - d.x) * k;
-            d.vy += (groupCenter.y - d.y) * k;
-        });
-    }
-
-    force.initialize = function (_) {
-        nodes = _;
-    };
-
-    force.centers = function (_) {
-        return arguments.length ? (centers = _, force) : centers;
-    };
-
-    force.strength = function (_) {
-        return arguments.length ? (strength = _, force) : strength;
-    };
-
-    return force;
-};
 
 d3.forceClusterMultiGroup = function () {
     let strength = 0.1;

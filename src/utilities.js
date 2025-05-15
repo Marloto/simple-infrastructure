@@ -5,7 +5,7 @@
  * @param {string} message - Die anzuzeigende Nachricht
  * @param {string} type - Der Bootstrap-Typ (success, danger, warning, info)
  */
-function showNotification(message, type = 'info') {
+export function showNotification(message, type = 'info') {
     // Prüfe, ob ein Benachrichtigungscontainer existiert
     let notificationContainer = document.getElementById('notification-container');
     

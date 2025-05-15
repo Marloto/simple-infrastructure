@@ -328,7 +328,7 @@ class Generator {
     }
 }
 
-function createGenerator(variables, systemPrompt = "", promptPrefix = "", options = {}) {
+export function createGenerator(variables, systemPrompt = "", promptPrefix = "", options = {}) {
     const llmType = options.llmType;
     const llmModel = options.llmModel;
     const llmApiKey = options.llmApiKey;
@@ -348,7 +348,7 @@ function createGenerator(variables, systemPrompt = "", promptPrefix = "", option
     return new Generator(api, systemPrompt, promptPrefix, variables);
 }
 
-async function handleSse(generator, callback) {
+export async function handleSse(generator, callback) {
     const stream = await generator.generate();
     const reader = stream.getReader();
     const decoder = new TextDecoder();

@@ -9,7 +9,7 @@
  * @function
  * @returns {void}
  */
-function uploadSystemData(dataManager) {
+export function uploadSystemData(dataManager) {
     // Erstelle ein verstecktes Datei-Input-Element
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
@@ -59,7 +59,7 @@ function uploadSystemData(dataManager) {
  * @param {Object} data - Die zu validierende Datenstruktur
  * @returns {boolean} True, wenn die Daten valide sind
  */
-function validateSystemData(data) {
+export function validateSystemData(data) {
     // Überprüfe, ob die Grundstruktur vorhanden ist
     if (!data || !Array.isArray(data.systems) || !Array.isArray(data.dependencies)) {
         return false;
@@ -84,7 +84,7 @@ function validateSystemData(data) {
 /**
  * Lädt die aktuellen Systemdaten als YAML-Datei herunter
  */
-function downloadSystemData(dataManager) {
+export function downloadSystemData(dataManager) {
     const currentData = dataManager.getData();
     
     if (!currentData || !currentData.systems || currentData.systems.length === 0) {

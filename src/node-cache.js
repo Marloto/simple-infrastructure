@@ -2,7 +2,7 @@
  * NodeCache - Verwaltet die Persistenz von Knotenpositionen im Diagramm
  * Speichert kontinuierlich die Positionen und kann diese aus verschiedenen Quellen laden
  */
-class NodeCache {
+export class NodeCache {
     constructor(options = {}) {
         this.positions = new Map();
         this.options = {
@@ -37,7 +37,7 @@ class NodeCache {
             vy: position.vy || 0,
             // Optional weitere Metadaten
             lastUpdated: Date.now(),
-            group: position.group
+            isFixed: position.isFixed || false,
         });
 
         this.saveToLocalStorage();
@@ -59,7 +59,7 @@ class NodeCache {
                     vx: node.vx || 0,
                     vy: node.vy || 0,
                     lastUpdated: Date.now(),
-                    group: node.group
+                    isFixed: node.isFixed || false,
                 });
                 updated = true;
             }

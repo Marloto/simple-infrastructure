@@ -1,7 +1,7 @@
 /**
  * DependencyManager - Verwaltet das Hinzufügen und Löschen von Abhängigkeiten
  */
-class DependencyManager {
+export class DependencyManager {
     constructor() {
         this.initialized = false;
         this.isConnectionModeActive = false;
