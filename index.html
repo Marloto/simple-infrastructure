@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IT-Infrastruktur Visualisierung</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.8.1/font/bootstrap-icons.min.css"
+        rel="stylesheet">
+    <!-- D3.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+
+<body class="fullscreen-body">
+    <div class="main-container">
+        <!-- Hauptvisualisierung im Vollbild -->
+        <div id="visualization-container"></div>
+
+        <!-- Overlay-Kontrollen (oben rechts) -->
+        <div class="controls-overlay">
+            <div class="btn-group">
+                <button class="btn btn-dark btn-sm" id="add-system" title="Element hinzufügen">
+                    <i class="bi bi-plus-lg"></i>
+                </button>
+                <button class="btn btn-dark btn-sm" id="toggle-connection-mode" title="Verbindungsmodus">
+                    <i class="bi bi-link"></i>
+                </button>
+                <button class="btn btn-dark btn-sm" id="toggle-search" title="Suche">
+                    <i class="bi bi-search"></i>
+                </button>
+                <button class="btn btn-dark btn-sm" id="toggle-filters" title="Filter">
+                    <i class="bi bi-funnel"></i>
+                </button>
+                <button class="btn btn-dark btn-sm" id="toggle-legend" title="Legende">
+                    <i class="bi bi-info-circle"></i>
+                </button>
+                <button class="btn btn-dark btn-sm" id="reset-zoom" title="Zoom zurücksetzen">
+                    <i class="bi bi-aspect-ratio"></i>
+                </button>
+                <button class="btn btn-dark btn-sm" id="upload-data" title="Daten hochladen">
+                    <i class="bi bi-upload"></i>
+                </button>
+                <button class="btn btn-dark btn-sm" id="download-data" title="Daten herunterladen">
+                    <i class="bi bi-download"></i>
+                </button>
+                <button id="toggle-llm-chat" class="btn btn-dark btn-sm" title="Chat-Assistent">
+                    <i class="bi bi-chat-dots"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Suchfeld (standardmäßig ausgeblendet) -->
+        <div class="search-overlay overlay" id="search-panel">
+            <div class="overlay-header">
+                <h5>Suche</h5>
+                <button class="btn-close close-overlay" data-close-target="search-panel"></button>
+            </div>
+            <div class="overlay-body">
+                <div class="input-group mb-3">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" class="form-control" id="system-search" placeholder="System suchen...">
+                </div>
+                <div id="search-results" class="list-group">
+                    <!-- Suchergebnisse werden hier eingefügt -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Filter-Panel (standardmäßig ausgeblendet) -->
+        <div class="filter-overlay overlay" id="filter-panel">
+            <div class="overlay-header">
+                <h5>Filter</h5>
+                <button class="btn-close close-overlay" data-close-target="filter-panel"></button>
+            </div>
+            <div class="overlay-body">
+                <h6>Systemkategorien</h6>
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input category-filter" type="checkbox" id="filter-core" value="core"
+                            checked>
+                        <label class="form-check-label" for="filter-core">Core</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input category-filter" type="checkbox" id="filter-legacy"
+                            value="legacy" checked>
+                        <label class="form-check-label" for="filter-legacy">Legacy</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input category-filter" type="checkbox" id="filter-data" value="data"
+                            checked>
+                        <label class="form-check-label" for="filter-data">Daten</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input category-filter" type="checkbox" id="filter-service"
+                            value="service" checked>
+                        <label class="form-check-label" for="filter-service">Service</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input category-filter" type="checkbox" id="filter-external"
+                            value="external" checked>
+                        <label class="form-check-label" for="filter-external">Extern</label>
+                    </div>
+                </div>
+
+                <h6>Systemstatus</h6>
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input status-filter" type="checkbox" id="filter-known" value="known"
+                            checked>
+                        <label class="form-check-label" for="filter-known">Bekannte Nutzung</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input status-filter" type="checkbox" id="filter-unknown"
+                            value="unknown" checked>
+                        <label class="form-check-label" for="filter-unknown">Unbekannte Nutzung</label>
+                    </div>
+                </div>
+
+                <button class="btn btn-primary btn-sm w-100" id="apply-filters">Filter anwenden</button>
+            </div>
+        </div>
+
+        <!-- Legende (standardmäßig ausgeblendet) -->
+        <div class="legend-overlay overlay" id="legend-panel">
+            <div class="overlay-header">
+                <h5>Legende</h5>
+                <button class="btn-close close-overlay" data-close-target="legend-panel"></button>
+            </div>
+            <div class="overlay-body">
+                <h6>Systemkategorien</h6>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #0d6efd;"></div>
+                    <div>Core System</div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #6c757d;"></div>
+                    <div>Legacy System</div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #198754;"></div>
+                    <div>Daten-System</div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #ffc107;"></div>
+                    <div>Service-System</div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #dc3545;"></div>
+                    <div>Externes System</div>
+                </div>
+
+                <h6 class="mt-3">Systemstatus</h6>
+                <div class="legend-item">
+                    <div style="width: 20px; height: 20px; border-radius: 50%; border: 2px solid #666;"></div>
+                    <div>Bekannte Nutzung</div>
+                </div>
+                <div class="legend-item">
+                    <div style="width: 20px; height: 20px; border-radius: 50%; border: 2px dashed #666;"></div>
+                    <div>Unbekannte Nutzung</div>
+                </div>
+
+                <h6 class="mt-3">Verbindungstypen</h6>
+                <div class="legend-item">
+                    <div style="width: 20px; height: 3px; background-color: #0d6efd;"></div>
+                    <div>Datenaustausch</div>
+                </div>
+                <div class="legend-item">
+                    <div style="width: 20px; height: 3px; background-color: #198754;"></div>
+                    <div>Integration</div>
+                </div>
+                <div class="legend-item">
+                    <div style="width: 20px; height: 3px; background-color: #dc3545;"></div>
+                    <div>Authentifizierung</div>
+                </div>
+                <div class="legend-item">
+                    <div style="width: 20px; height: 3px; background-color: #6c757d;"></div>
+                    <div>Monitoring</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detailansicht Overlay (erscheint beim Klick auf ein System) -->
+        <div class="details-overlay overlay" id="details-panel">
+            <div class="overlay-header">
+                <h5 id="detail-title">Systemdetails</h5>
+                <div class="btn-group me-2">
+                    <button class="btn btn-sm btn-outline-primary edit-system-btn" title="System bearbeiten">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger delete-system-btn" title="System löschen">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+                <button class="btn-close close-overlay" data-close-target="details-panel"></button>
+            </div>
+            <div class="overlay-body" id="system-details">
+                <!-- Systemdetails werden hier eingefügt -->
+            </div>
+        </div>
+    </div>
+
+    <div id="llm-chat-container" class="llm-chat-container">
+        <div class="llm-chat-header">
+            <h5>Infrastruktur-Assistent</h5>
+            <button class="btn-close" id="llm-chat-close"></button>
+        </div>
+        <div class="llm-chat-messages" id="llm-chat-messages">
+            <!-- Chat-Nachrichten werden hier eingefügt -->
+        </div>
+        <div class="llm-chat-input-container">
+            <textarea id="llm-chat-input" class="llm-chat-input"
+                placeholder="Beschreibe Änderungen an der Infrastruktur..." rows="2"></textarea>
+            <button id="llm-chat-send" class="llm-chat-send btn btn-primary">
+                <i class="bi bi-send"></i>
+            </button>
+        </div>
+        <div class="llm-chat-loading" id="llm-chat-loading">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Wird verarbeitet...</span>
+            </div>
+            <span>Antwort wird generiert...</span>
+        </div>
+    </div>
+
+    <!-- Modal für System hinzufügen/bearbeiten -->
+    <div class="modal fade" id="system-modal" tabindex="-1" aria-labelledby="system-modal-label" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="system-modal-label">System hinzufügen</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="system-form">
+                        <input type="hidden" id="system-id">
+                        <div class="mb-3">
+                            <label for="system-name" class="form-label">Name*</label>
+                            <input type="text" class="form-control" id="system-name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="system-description" class="form-label">Beschreibung*</label>
+                            <textarea class="form-control" id="system-description" rows="3" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="system-category" class="form-label">Kategorie*</label>
+                            <select class="form-select" id="system-category" required>
+                                <option value="core">Core</option>
+                                <option value="legacy">Legacy</option>
+                                <option value="data">Daten</option>
+                                <option value="service">Service</option>
+                                <option value="external">Extern</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="system-group" class="form-label">Gruppe</label>
+                            <input type="text" class="form-control" id="system-group" list="group-list">
+                            <datalist id="group-list">
+                                <!-- Wird dynamisch befüllt -->
+                            </datalist>
+                        </div>
+                        <div class="mb-3">
+                            <label for="system-status" class="form-label">Status*</label>
+                            <select class="form-select" id="system-status" required>
+                                <option value="active">Aktiv</option>
+                                <option value="planned">Geplant</option>
+                                <option value="deprecated">Veraltet</option>
+                                <option value="retired">Außer Betrieb</option>
+                            </select>
+                        </div>
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="system-known-usage" checked>
+                            <label class="form-check-label" for="system-known-usage">Bekannte Nutzung</label>
+                        </div>
+                        <div class="mb-3">
+                            <label for="system-tags" class="form-label">Tags (durch Komma getrennt)</label>
+                            <input type="text" class="form-control" id="system-tags">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="button" class="btn btn-primary" id="save-system">Speichern</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bestätigungsmodal für Löschvorgänge -->
+    <div class="modal fade" id="confirm-modal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Bestätigung erforderlich</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button>
+                </div>
+                <div class="modal-body" id="confirm-message">
+                    Möchten Sie dieses Element wirklich löschen?
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="button" class="btn btn-danger" id="confirm-action">Löschen</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Marked.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+    <!-- JS-YAML -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
+    <!-- Bootstrap JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/js/bootstrap.bundle.min.js"></script>
+    <!-- Visualizer JS -->
+    <script src="assets/js/completion.js"></script>
+    <script src="assets/js/utilities.js"></script>
+    <script src="assets/js/node-cache.js"></script>
+    <script src="assets/js/data-manager.js"></script>
+    <script src="assets/js/data-loader.js"></script>
+    <script src="assets/js/dependency-manager.js"></script>
+    <script src="assets/js/visualizer.js"></script>
+    <script src="assets/js/simulation.js"></script>
+    <script src="assets/js/system-manager.js"></script>
+    <script src="assets/js/llm-integration-manager.js"></script>
+
+    <!-- UI Interaktionen für die Overlays -->
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Systemdaten laden und DataManager initialisieren
+            const dataManager = new DataManager();
+            console.log('Systemdaten geladen:', dataManager.data);
+
+            // Visualizer erstellen und mit DataManager verknüpfen
+            const visualizer = new SystemVisualizer('visualization-container', dataManager);
+            visualizer.initialize();
+            dataManager.registerVisualizer(visualizer);
+
+            // DependencyManager initialisieren
+            const dependencyManager = new DependencyManager();
+            dependencyManager.initialize(dataManager, visualizer);
+
+            // DependencyManager an den Visualizer übergeben
+            visualizer.dependencyManager = dependencyManager;
+            window.vis = visualizer;
+
+            // SystemManager initialisieren
+            const systemManager = new SystemManager();
+            systemManager.initialize(dataManager);
+
+            // LLM-Integration initialisieren (NEU)
+            const llmManager = new LlmIntegrationManager({
+                apiKey: localStorage.getItem("llmApiKey") || "", // API-Key aus localStorage
+                llmType: "claude", // claude, openai, custom
+                llmModel: "claude-3-7-sonnet-20250219", // Modell je nach LLM-Typ
+                // llmUrl: "https://deine-custom-api-url.com", // Nur für custom-Typ
+            });
+            llmManager.initialize(dataManager);
+
+            // Chat-Interface einrichten (NEU)
+            setupLlmChatInterface(llmManager);
+
+            window.llm = llmManager; // Optional: Für Zugriff über die Konsole
+
+            // Toggle-Buttons für die Overlays
+            document.getElementById('toggle-search').addEventListener('click', () => toggleOverlay('search-panel'));
+            document.getElementById('toggle-filters').addEventListener('click', () => toggleOverlay('filter-panel'));
+            document.getElementById('toggle-legend').addEventListener('click', () => toggleOverlay('legend-panel'));
+
+            // Event-Listener für den Upload-Button
+            document.getElementById('upload-data').addEventListener('click', () => uploadSystemData(dataManager));
+
+            // Event-Listener für den Download-Button
+            document.getElementById('download-data').addEventListener('click', () => downloadSystemData(dataManager));
+
+            // Event-Listener für den Add-System-Button
+            document.getElementById('add-system').addEventListener('click', () => systemManager.showSystemModal());
+
+            // "System speichern"-Button Event im Modal
+            document.getElementById('save-system').addEventListener('click', () => systemManager.saveSystem());
+
+            // Event-Handler für Bearbeiten- und Löschen-Buttons in der Detailansicht
+            document.querySelector('.edit-system-btn').addEventListener('click', () => {
+                const systemId = document.getElementById('detail-title').getAttribute('data-system-id');
+                if (systemId) {
+                    systemManager.showSystemModal(systemId);
+                }
+            });
+
+            document.querySelector('.delete-system-btn').addEventListener('click', () => {
+                const systemId = document.getElementById('detail-title').getAttribute('data-system-id');
+                if (systemId) {
+                    systemManager.showDeleteConfirmation(systemId);
+                }
+            });
+
+            // Event-Handler für Bestätigungs-Modal
+            document.getElementById('confirm-action').addEventListener('click', () => {
+                const confirmAction = document.getElementById('confirm-action').getAttribute('data-action');
+                const confirmId = document.getElementById('confirm-action').getAttribute('data-id');
+
+                if (confirmAction === 'delete-system' && confirmId) {
+                    systemManager.deleteSystem(confirmId);
+                    bootstrap.Modal.getInstance(document.getElementById('confirm-modal')).hide();
+                } else if (confirmAction === 'delete-dependency') {
+                    const sourceId = document.getElementById('confirm-action').getAttribute('data-source');
+                    const targetId = document.getElementById('confirm-action').getAttribute('data-target');
+                    if (sourceId && targetId) {
+                        dependencyManager.deleteDependency(sourceId, targetId);
+                        bootstrap.Modal.getInstance(document.getElementById('confirm-modal')).hide();
+                    }
+                }
+            });
+
+            // Close-Buttons in den Overlays
+            document.querySelectorAll('.close-overlay').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const targetId = btn.getAttribute('data-close-target');
+                    document.getElementById(targetId).classList.remove('active');
+                });
+            });
+
+            // Overlay-Funktion
+            function toggleOverlay(id) {
+                const panel = document.getElementById(id);
+
+                // Alle anderen Overlays schließen
+                document.querySelectorAll('.overlay').forEach(overlay => {
+                    if (overlay.id !== id) overlay.classList.remove('active');
+                });
+
+                // Ausgewähltes Overlay umschalten
+                panel.classList.toggle('active');
+            }
+        });
+        // Diese Funktion nach der LlmIntegrationManager-Initialisierung aufrufen
+        function setupLlmChatInterface(llmManager) {
+            // UI-Elemente
+            const chatContainer = document.getElementById('llm-chat-container');
+            const chatMessages = document.getElementById('llm-chat-messages');
+            const chatInput = document.getElementById('llm-chat-input');
+            const sendButton = document.getElementById('llm-chat-send');
+            const closeButton = document.getElementById('llm-chat-close');
+            const loadingIndicator = document.getElementById('llm-chat-loading');
+
+            // Toggle-Button zur Controls-Leiste hinzufügen
+            const controlsOverlay = document.querySelector('.controls-overlay .btn-group');
+            if (controlsOverlay) {
+                // Event-Listener für den Toggle-Button
+                document.getElementById('toggle-llm-chat').addEventListener('click', toggleChat);
+            }
+
+            // Chat öffnen/schließen
+            function toggleChat() {
+                const isVisible = chatContainer.style.display === 'flex';
+                chatContainer.style.display = isVisible ? 'none' : 'flex';
+                if (isVisible) {
+                    document.getElementById('toggle-llm-chat').classList.remove('active');
+                } else {
+                    document.getElementById('toggle-llm-chat').classList.add('active');
+                }
+
+                if (!isVisible) {
+                    chatInput.focus();
+
+                    // Willkommensnachricht anzeigen, wenn der Chat leer ist
+                    if (chatMessages.children.length === 0) {
+                        addSystemMessage("Wie kann ich dir bei der Verwaltung deiner IT-Infrastruktur helfen? Du kannst mir Änderungen beschreiben, und ich aktualisiere das Modell für dich.");
+                    }
+                }
+            }
+
+            // Close-Button
+            closeButton.addEventListener('click', () => {
+                chatContainer.style.display = 'none';
+                document.getElementById('toggle-llm-chat').classList.remove('active');
+            });
+
+            // Nachrichten senden
+            sendButton.addEventListener('click', sendMessage);
+
+            // Enter-Taste zum Senden (ohne Shift)
+            chatInput.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault();
+                    sendMessage();
+                }
+            });
+
+            // Nachricht senden und LLM-Antwort verarbeiten
+            async function sendMessage() {
+                const userInput = chatInput.value.trim();
+                if (!userInput) return;
+
+                // Benutzereingabe anzeigen
+                addUserMessage(userInput);
+                chatInput.value = '';
+
+                // Loading-Indikator anzeigen
+                loadingIndicator.style.display = 'flex';
+
+                // Aktuelle Nachricht im UI zusammenbauen
+                let currentAssistantMessage = '';
+                const messageElement = addAssistantMessage('');
+
+                // LLM-Anfrage verarbeiten
+                let currentResult = "";
+                const result = await llmManager.processUserInput(userInput, (token) => {
+                    currentResult += token;
+                    messageElement.innerHTML = marked? marked.parse(currentResult) : currentResult;
+                });
+                console.log(result);
+
+                // Loading-Indikator ausblenden
+                loadingIndicator.style.display = 'none';
+
+                // Antwort anzeigen
+                messageElement.innerHTML = marked? marked.parse(result.originalResponse) : result.originalResponse;
+
+                // Bei YAML-Antwort mit Änderungen
+                if (result.success && result.yamlData) {
+                    showUpdateConfirmation(result.yamlData, result.differences);
+                }
+            }
+
+            // Zeigt Bestätigungsdialog für Änderungen an
+            function showUpdateConfirmation(newData, differences) {
+                // Nur bestätigen lassen, wenn es Änderungen gibt
+                if (differences.added.systems.length === 0 &&
+                    differences.modified.systems.length === 0 &&
+                    differences.removed.systems.length === 0 &&
+                    differences.added.dependencies.length === 0 &&
+                    differences.modified.dependencies.length === 0 &&
+                    differences.removed.dependencies.length === 0) {
+                    return;
+                }
+
+                // Zusammenfassung der Änderungen erstellen
+                let summaryText = "Folgende Änderungen wurden erkannt:\n\n";
+
+                // Systeme
+                if (differences.added.systems.length > 0) {
+                    summaryText += `➕ ${differences.added.systems.length} neue Systeme: ${differences.added.systems.map(s => s.name).join(', ')}\n`;
+                }
+                if (differences.modified.systems.length > 0) {
+                    summaryText += `✏️ ${differences.modified.systems.length} geänderte Systeme: ${differences.modified.systems.map(s => s.name).join(', ')}\n`;
+                }
+                if (differences.removed.systems.length > 0) {
+                    summaryText += `❌ ${differences.removed.systems.length} entfernte Systeme: ${differences.removed.systems.map(s => s.name).join(', ')}\n`;
+                }
+
+                // Abhängigkeiten
+                if (differences.added.dependencies.length > 0) {
+                    summaryText += `➕ ${differences.added.dependencies.length} neue Verbindungen\n`;
+                }
+                if (differences.modified.dependencies.length > 0) {
+                    summaryText += `✏️ ${differences.modified.dependencies.length} geänderte Verbindungen\n`;
+                }
+                if (differences.removed.dependencies.length > 0) {
+                    summaryText += `❌ ${differences.removed.dependencies.length} entfernte Verbindungen\n`;
+                }
+
+                // Nachricht erstellen
+                const messageElement = document.createElement('div');
+                messageElement.className = 'llm-chat-message llm-system-message';
+                messageElement.textContent = summaryText;
+
+                // Aktions-Buttons hinzufügen
+                const actionsDiv = document.createElement('div');
+                actionsDiv.className = 'llm-update-actions';
+
+                const applyButton = document.createElement('button');
+                applyButton.className = 'btn btn-primary';
+                applyButton.textContent = 'Änderungen anwenden';
+                applyButton.addEventListener('click', () => {
+                    // Daten im DataManager aktualisieren
+                    llmManager.applyChanges(differences);
+
+                    // Feedback anzeigen
+                    addSystemMessage("Die Änderungen wurden erfolgreich angewendet.");
+
+                    // Button-Container entfernen
+                    messageElement.removeChild(actionsDiv);
+                });
+
+                const cancelButton = document.createElement('button');
+                cancelButton.className = 'btn btn-outline-secondary';
+                cancelButton.textContent = 'Verwerfen';
+                cancelButton.addEventListener('click', () => {
+                    addSystemMessage("Die Änderungen wurden verworfen.");
+
+                    // Button-Container entfernen
+                    messageElement.removeChild(actionsDiv);
+                });
+
+                actionsDiv.appendChild(applyButton);
+                actionsDiv.appendChild(cancelButton);
+                messageElement.appendChild(actionsDiv);
+
+                // Zum Chat hinzufügen
+                chatMessages.appendChild(messageElement);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+
+            // Hilfsfunktionen zum Hinzufügen von Nachrichten
+
+            function addUserMessage(message) {
+                const messageElement = document.createElement('div');
+                messageElement.className = 'llm-chat-message llm-user-message';
+                messageElement.textContent = message;
+                chatMessages.appendChild(messageElement);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+                return messageElement;
+            }
+
+            function addAssistantMessage(message) {
+                const messageElement = document.createElement('div');
+                messageElement.className = 'llm-chat-message llm-assistant-message';
+                messageElement.innerHTML = message;
+                chatMessages.appendChild(messageElement);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+                return messageElement;
+            }
+
+            function addSystemMessage(message) {
+                const messageElement = document.createElement('div');
+                messageElement.className = 'llm-chat-message llm-system-message';
+                messageElement.textContent = message;
+                chatMessages.appendChild(messageElement);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+                return messageElement;
+            }
+        }
+
+        // In der DOMContentLoaded-Funktion hinzufügen:
+        // llmManager initialisieren...
+        // setupLlmChatInterface(llmManager);
+    </script>
+</body>
+
+</html>

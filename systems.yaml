@@ -1,0 +1,59 @@
+# IT-Infrastruktur Systeme und Abhängigkeiten
+# Definiert alle Systeme und deren Abhängigkeiten für die Visualisierung
+
+# Liste aller Systeme
+systems:
+  - id: entra
+    name: Microsoft Entra ID
+    description: Zentrales Enterprise Resource Planning System
+    category: core
+    group: identity
+    status: active
+    knownUsage: true
+    tags:
+      - auth
+
+  - id: ad
+    name: Microsoft Active Directory
+    description: Zentrales Verzeichnisdienstsystem, lokale Verwaltung, gespiegelt mit Entra
+    category: core
+    status: active
+    group: identity
+    knownUsage: true
+    tags:
+      - auth
+
+  - id: primuss
+    name: PRIMUSS
+    description: Managementsystem für die Verwaltung von Studierenden und Studiengängen
+    category: data
+    status: active
+    knownUsage: true
+    tags:
+      - management
+      - analytics
+
+  - id: other
+    name: Other Service
+    description: More things...
+    category: data
+    status: active
+    knownUsage: true
+    tags:
+      - management
+      - analytics
+
+
+# Liste aller Abhängigkeiten zwischen Systemen
+dependencies:
+  - source: primuss
+    target: ad
+    type: data
+    description: Authentifizierung von Benutzern über LDAP
+    protocol: LDAP
+
+  - source: ad
+    target: entra
+    type: data
+    description: Synchronisation von Benutzerdaten
+    protocol: Script
