@@ -8,7 +8,7 @@ class LlmIntegrationManager {
         this.generator = null;
         this.initialized = false;
         this.isProcessing = false;
-        
+
         // Konfiguration mit Standardwerten
         this.config = {
             apiKey: options.apiKey || "",
@@ -28,17 +28,17 @@ class LlmIntegrationManager {
      */
     initialize(dataManager) {
         if (this.initialized) return;
-        
+
         if (!dataManager) {
             console.error("Kein DataManager bereitgestellt");
             return;
         }
-        
+
         this.dataManager = dataManager;
-        
+
         // LLM-Generator erstellen
         this.createLlmGenerator();
-        
+
         this.initialized = true;
         console.log("LlmIntegrationManager wurde initialisiert");
     }
@@ -50,11 +50,11 @@ class LlmIntegrationManager {
         const variables = {
             currentData: JSON.stringify(this.dataManager.getData())
         };
-        
+
         // Generator mit der createGenerator-Funktion erstellen
         this.generator = createGenerator(
             variables,
-            this.config.systemPrompt, 
+            this.config.systemPrompt,
             this.config.promptPrefix,
             {
                 llmType: this.config.llmType,
@@ -63,7 +63,7 @@ class LlmIntegrationManager {
                 llmUrl: this.config.llmUrl
             }
         );
-        
+
         if (!this.generator) {
             console.error("Fehler beim Erstellen des LLM-Generators");
             showNotification("LLM-Integration konnte nicht initialisiert werden", "danger");
@@ -79,7 +79,7 @@ class LlmIntegrationManager {
         if (!userInput || !this.generator || this.isProcessing) {
             return { success: false, message: "Eingabe kann nicht verarbeitet werden" };
         }
-        
+
         this.isProcessing = true;
         let result = {
             success: false,
@@ -88,49 +88,49 @@ class LlmIntegrationManager {
             yamlData: null,
             differences: null
         };
-        
+
         try {
             // Aktuelle Daten vorbereiten
             const currentData = this.dataManager.getData();
             const messageWithContext = this.createContextMessage(currentData, userInput);
-            
+
             // Nachricht an das LLM senden
             this.generator.attachMessageAsUser(messageWithContext);
-            
+
             // Stream-Antwort verarbeiten
             const response = await handleSse(
-                this.generator, 
+                this.generator,
                 (error, token) => {
                     if (error) {
                         console.error("Stream-Fehler:", error);
                         return;
                     }
-                    
+
                     // Token an Handler übergeben, falls definiert
                     if (this.config.onTyping && token) {
                         this.config.onTyping(token);
                     }
-                    if(callback && token) {
+                    if (callback && token) {
                         callback(token);
                     }
                 }
             );
-            
+
             // Vollständige Antwort speichern
             result.originalResponse = response;
-            
+
             // Antwort parsen und YAML extrahieren
             const yamlContent = this.extractYamlFromResponse(response);
-            
+
             if (yamlContent) {
                 try {
                     // YAML parsen
                     const parsedData = jsyaml.load(yamlContent);
-                    
+
                     // Daten validieren
                     if (this.validateSystemData(parsedData)) {
                         result.yamlData = parsedData;
-                        
+
                         // Unterschiede berechnen
                         result.differences = this.calculateDifferences(currentData, parsedData);
                         result.success = true;
@@ -146,14 +146,14 @@ class LlmIntegrationManager {
                 result.success = true;
                 result.message = "Keine Infrastrukturänderungen erkannt";
             }
-            
+
             // Falls ein Callback für empfangene Nachrichten definiert ist, diesen aufrufen
             if (this.config.onMessageReceived) {
                 this.config.onMessageReceived(result);
             }
-            
+
             return result;
-            
+
         } catch (error) {
             console.error("Fehler bei der LLM-Verarbeitung:", error);
             result.message = "Es ist ein Fehler bei der Verarbeitung aufgetreten";
@@ -178,7 +178,7 @@ systems:
 ${currentData.systems.map(sys => `  - id: ${sys.id}
     name: ${sys.name}
     description: ${sys.description}
-    category: ${sys.category}${sys.group ? `\n    group: ${sys.group}` : ''}
+    category: ${sys.category}${this.formatGroups(sys)}
     status: ${sys.status}
     knownUsage: ${sys.knownUsage}${sys.tags && sys.tags.length > 0 ? `\n    tags:\n${sys.tags.map(tag => `      - ${tag}`).join('\n')}` : ''}
 `).join('\n')}
@@ -203,6 +203,9 @@ systems:
     name: System Name
     description: Beschreibung
     category: category
+    groups:
+      - group1
+      - group2
     status: status
     delete: true/false
     knownUsage: true/false
@@ -219,6 +222,29 @@ dependencies:
 
 Wenn keine Änderungen erforderlich sind, antworte mit normaler Konversation. Gib YAML nur zurück, wenn Infrastrukturänderungen angefordert wurden.
 `;
+    }
+
+    /**
+     * Hilfsfunktion zum Formatieren der Gruppen-Information für die YAML-Darstellung
+     * @param {Object} system - Das System-Objekt
+     * @returns {string} - Formatierte Gruppen-Information
+     */
+    formatGroups(system) {
+        let groupsText = '';
+
+        // Fall 1: system hat ein groups-Array mit Einträgen
+        if (Array.isArray(system.groups) && system.groups.length > 0) {
+            groupsText = '\n    groups:';
+            system.groups.forEach(group => {
+                groupsText += `\n      - ${group}`;
+            });
+        }
+        // Fall 2: Legacy-Fall mit einfachem group-Feld
+        else if (system.group && typeof system.group === 'string') {
+            groupsText = `\n    group: ${system.group}`;
+        }
+
+        return groupsText;
     }
 
     /**
@@ -260,14 +286,14 @@ Wenn keine Änderungen erforderlich sind, antworte mit normaler Konversation. Gi
                 dependencies: []
             }
         };
-        
+
         // Systeme vergleichen
         const currentSystemIds = new Set(currentData.systems.map(s => s.id));
-        
+
         // Hinzugefügte Systeme
         newData.systems.forEach(newSystem => {
             // Gelöschte Systeme
-            if(newSystem.delete) {
+            if (newSystem.delete) {
                 differences.removed.systems.push(newSystem);
                 return;
             }
@@ -281,13 +307,13 @@ Wenn keine Änderungen erforderlich sind, antworte mit normaler Konversation. Gi
                 }
             }
         });
-        
+
         // Abhängigkeiten vergleichen
         const currentDepKeys = new Set(currentData.dependencies.map(d => `${d.source}-${d.target}`));
-        
+
         // Hinzugefügte Abhängigkeiten
         newData.dependencies.forEach(newDep => {
-            if(newDep.delete) {
+            if (newDep.delete) {
                 differences.removed.dependencies.push(newDep);
                 return;
             }
@@ -296,42 +322,56 @@ Wenn keine Änderungen erforderlich sind, antworte mit normaler Konversation. Gi
                 differences.added.dependencies.push(newDep);
             } else {
                 // Geänderte Abhängigkeiten
-                const currentDep = currentData.dependencies.find(d => 
+                const currentDep = currentData.dependencies.find(d =>
                     d.source === newDep.source && d.target === newDep.target);
                 if (!this.areDependenciesEqual(currentDep, newDep)) {
                     differences.modified.dependencies.push(newDep);
                 }
             }
         });
-        
+
         return differences;
     }
 
     /**
-     * Vergleicht zwei Systeme auf Gleichheit
+     * Vergleicht zwei Systeme auf Gleichheit, angepasst für Multi-Gruppen
      * @param {Object} system1 - Erstes System
      * @param {Object} system2 - Zweites System
      * @returns {boolean} True, wenn die Systeme gleich sind
      */
     areSystemsEqual(system1, system2) {
         if (!system1 || !system2) return false;
-        
+
         // Vergleich der Haupteigenschaften
         if (system1.name !== system2.name ||
             system1.description !== system2.description ||
             system1.category !== system2.category ||
             system1.status !== system2.status ||
-            system1.knownUsage !== system2.knownUsage ||
-            system1.group !== system2.group) {
+            system1.knownUsage !== system2.knownUsage) {
             return false;
         }
-        
+
+        // Gruppen vergleichen
+        const groups1 = this.getSystemGroups(system1);
+        const groups2 = this.getSystemGroups(system2);
+
+        if (groups1.length !== groups2.length) {
+            return false;
+        }
+
+        // Prüfen, ob alle Gruppen übereinstimmen (Reihenfolge unwichtig)
+        for (const group of groups1) {
+            if (!groups2.includes(group)) {
+                return false;
+            }
+        }
+
         // Tags vergleichen (falls vorhanden)
         if (Array.isArray(system1.tags) && Array.isArray(system2.tags)) {
             if (system1.tags.length !== system2.tags.length) {
                 return false;
             }
-            
+
             for (let i = 0; i < system1.tags.length; i++) {
                 if (!system2.tags.includes(system1.tags[i])) {
                     return false;
@@ -340,8 +380,25 @@ Wenn keine Änderungen erforderlich sind, antworte mit normaler Konversation. Gi
         } else if ((system1.tags && !system2.tags) || (!system1.tags && system2.tags)) {
             return false;
         }
-        
+
         return true;
+    }
+
+    /**
+     * Hilfsfunktion zum Extrahieren aller Gruppen eines Systems
+     * @param {Object} system - Das System-Objekt
+     * @returns {Array} Array mit allen Gruppennamen
+     */
+    getSystemGroups(system) {
+        let groups = [];
+
+        if (Array.isArray(system.groups) && system.groups.length > 0) {
+            groups = [...system.groups];
+        } else if (system.group && typeof system.group === 'string') {
+            groups = [system.group];
+        }
+
+        return groups;
     }
 
     /**
@@ -352,10 +409,10 @@ Wenn keine Änderungen erforderlich sind, antworte mit normaler Konversation. Gi
      */
     areDependenciesEqual(dep1, dep2) {
         if (!dep1 || !dep2) return false;
-        
+
         return dep1.type === dep2.type &&
-               dep1.description === dep2.description &&
-               dep1.protocol === dep2.protocol;
+            dep1.description === dep2.description &&
+            dep1.protocol === dep2.protocol;
     }
 
     /**
@@ -371,21 +428,21 @@ Wenn keine Änderungen erforderlich sind, antworte mit normaler Konversation. Gi
 
         data.systems = data.systems || [];
         data.dependencies = data.dependencies || [];
-        
+
         // Überprüfe, ob alle Systeme eine ID haben
         const allSystemsHaveId = data.systems.every(system => !!system.id);
         if (!allSystemsHaveId) {
             return false;
         }
-        
+
         // Überprüfe, ob alle Abhängigkeiten gültige source und target haben
         const currentData = this.dataManager.getData();
-        const allDependenciesValid = data.dependencies.every(dep => 
+        const allDependenciesValid = data.dependencies.every(dep =>
             !!dep.source && !!dep.target &&
             (data.systems.some(sys => sys.id === dep.source) || currentData.systems.some(sys => sys.id === dep.source)) &&
             (data.systems.some(sys => sys.id === dep.target) || currentData.systems.some(sys => sys.id === dep.target))
         );
-        
+
         return allDependenciesValid;
     }
 
@@ -398,11 +455,11 @@ Wenn keine Änderungen erforderlich sind, antworte mit normaler Konversation. Gi
         // Suche nach YAML-Blöcken in der Antwort (mit Markdown-Code-Block)
         const yamlRegex = /```(?:yaml)?\s*([\s\S]*?)\s*```/i;
         const match = response.match(yamlRegex);
-        
+
         if (match && match[1]) {
             return match[1].trim();
         }
-        
+
         return null;
     }
 
@@ -411,8 +468,7 @@ Wenn keine Änderungen erforderlich sind, antworte mit normaler Konversation. Gi
      * @returns {string} Der Standard-Systemprompt
      */
     getDefaultSystemPrompt() {
-        return `Du bist ein Infrastruktur-Assistent, der dabei hilft, IT-Systeme und deren Abhängigkeiten zu verwalten.
-Du analysierst Benutzeranfragen und wandelst sie in strukturierte YAML-Definitionen um.
+        return `Du bist ein Infrastruktur-Assistent, der dabei hilft, IT-Systeme und deren Abhängigkeiten zu verwalten. IT-Systeme bestehen aus id, name, description, category, status, knownUsage, groups (array, optional) und tags (array, optional). Abhängigkeiten zwischen Systemen haben die Attribute source, target, type, description und protocol. Du analysierst Benutzeranfragen und wandelst sie in strukturierte YAML-Definitionen um.
 
 Akzeptable Kategorien (category) für Systeme sind:
 - core: Zentrale Systeme
@@ -438,13 +494,16 @@ antworte mit den neuen, geänderten und gelöschten Elementen in der YAML-Strukt
 Füge keine Erklärungen innerhalb des YAML-Blocks hinzu.
 
 Halte dich an dieses Format:
+
 \`\`\`yaml
 systems:
   - id: systemId
     name: System Name
     description: Beschreibung
     category: kategorie
-    group: gruppenname (optional)
+    groups:
+      - gruppe1
+      - gruppe2
     status: status
     knownUsage: true/false
     delete: true/false

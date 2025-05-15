@@ -9,10 +9,10 @@ function loadSystemData() {
         if (!yamlText) {
             throw new Error('Konnte Systemdaten nicht aus dem lokalen Speicher laden');
         }
-        
+
         // YAML zu JavaScript-Objekt parsen
         const parsedData = jsyaml.load(yamlText);
-        
+
         return parsedData;
     } catch (error) {
         console.error('Fehler beim Laden der Daten:', error);
@@ -101,6 +101,68 @@ class DataManager {
     }
 
     /**
+     * Gibt alle einzigartigen Gruppen zurück, die in den Systemdaten vorhanden sind
+     * @returns {Array} Array mit einzigartigen Gruppennamen
+     */
+    getAllGroups() {
+        const groups = new Set();
+
+        this.data.systems.forEach(system => {
+            if (Array.isArray(system.groups)) {
+                system.groups.forEach(group => {
+                    if (group && group.trim() !== '') {
+                        groups.add(group);
+                    }
+                });
+            } else if (system.group && typeof system.group === 'string') {
+                groups.add(system.group);
+            }
+        });
+
+        return Array.from(groups).sort();
+    }
+
+    /**
+     * Hilfsfunktion zur Sicherstellung, dass jedes System ein 'groups'-Array hat
+     * Konvertiert einzelne 'group'-Strings in Arrays falls notwendig (Abwärtskompatibilität)
+     * @param {Object} system - Das zu überprüfende System
+     */
+    ensureGroupsArray(system) {
+        // Fall 1: system hat bereits ein groups-Array -> nichts tun
+        if (Array.isArray(system.groups)) {
+            // Entferne leere Werte und doppelte Einträge
+            system.groups = system.groups
+                .filter(group => group && group.trim() !== '')
+                .filter((group, index, self) => self.indexOf(group) === index);
+
+            // Legacy group-Feld entfernen, wenn vorhanden
+            delete system.group;
+            return;
+        }
+
+        // Fall 2: system hat ein group-Feld -> konvertieren zu groups-Array
+        if (typeof system.group === 'string' && system.group.trim() !== '') {
+            // Wenn group ein Komma-separierter String ist, teilen
+            if (system.group.includes(',')) {
+                system.groups = system.group.split(',')
+                    .map(g => g.trim())
+                    .filter(g => g !== '');
+            } else {
+                system.groups = [system.group];
+            }
+
+            // Legacy-Feld behalten für Abwärtskompatibilität
+            // Oder entscheiden Sie, es zu entfernen mit: delete system.group;
+            system.group = system.groups[0]; // Erste Gruppe als Legacy-Wert beibehalten
+        }
+        // Fall 3: system hat weder group noch groups
+        else if (!system.groups) {
+            system.groups = [];
+            delete system.group; // Sicherstellen, dass kein leeres group-Feld existiert
+        }
+    }
+
+    /**
      * Fügt ein neues System hinzu
      * @param {Object} system - Das neue System
      * @returns {string} Die ID des hinzugefügten Systems
@@ -109,6 +171,10 @@ class DataManager {
         if (!system.id) {
             system.id = this.generateUniqueId();
         }
+
+        // Kompatibilitätshandling für die Konvertierung von 'group' zu 'groups'
+        this.ensureGroupsArray(system);
+
         this.data.systems.push(system);
         notify && this.notifyListeners('dataChanged');
         return system.id;
@@ -122,6 +188,9 @@ class DataManager {
     updateSystem(updatedSystem, notify = true) {
         const index = this.data.systems.findIndex(sys => sys.id === updatedSystem.id);
         if (index !== -1) {
+            // Kompatibilitätshandling für die Konvertierung von 'group' zu 'groups'
+            this.ensureGroupsArray(updatedSystem);
+
             this.data.systems[index] = updatedSystem;
             notify && this.notifyListeners('dataChanged');
             return true;

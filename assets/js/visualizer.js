@@ -177,7 +177,7 @@ class SystemVisualizer {
         this.groupHulls = g.append("g")
             .attr("class", "groups")
             .selectAll(".group-hull")
-            .data(Object.entries(groups).filter(([name]) => name !== "undefined")) // "undefined" Gruppe ausfiltern
+            .data(Object.entries(groups).filter(([name]) => name !== "ungrouped")) // "undefined" Gruppe ausfiltern
             .enter().append("path")
             .attr("class", "group-hull")
             .attr("data-group", d => d[0])
@@ -248,8 +248,20 @@ class SystemVisualizer {
         this.nodeElements = nodeGroup.selectAll(".node")
             .data(nodes)
             .enter().append("g")
-            .attr("class", d => `node ${d.knownUsage ? "" : "unknown-usage"} ${d.group ? "group-" + d.group : ""}`)
-            .attr("data-system-id", d => d.id);
+            .attr("class", d => {
+                const classes = ["node"];
+                if (!d.knownUsage) classes.push("unknown-usage");
+
+                // Mehrere Gruppen-Klassen hinzufügen
+                const nodeGroups = this.getNodeGroups(d);
+                nodeGroups.forEach(group => {
+                    classes.push(`group-${group}`);
+                });
+
+                return classes.join(" ");
+            })
+            .attr("data-system-id", d => d.id)
+            .attr("data-groups", d => this.getNodeGroups(d).join(","));
 
         if (!this.dragDisabled) {
             this.nodeElements.call(this.simulationManager.createDragBehavior())
@@ -260,8 +272,18 @@ class SystemVisualizer {
         this.nodeElements.append("circle")
             .attr("r", radius)
             .attr("fill", d => this.colorScale(d.category))
-            .attr("stroke", d => d.group ? this.groupColorScale(d.group) : "#fff")
-            .attr("stroke-width", d => d.group ? 3 : 2)
+            .attr("stroke", d => {
+                const nodeGroups = this.getNodeGroups(d);
+                if (nodeGroups.length > 0) {
+                    // Bei mehreren Gruppen einen Mehrfarben-Stroke erstellen (könnte z.B. gestrichelt sein)
+                    return nodeGroups.length > 1 ?
+                        "url(#multigroup-gradient-" + d.id + ")" : // ID für Gradient
+                        this.groupColorScale(nodeGroups[0]); // Einzelne Gruppe
+                }
+                return "#fff"; // Standard ohne Gruppe
+            })
+            .attr("stroke-width", d => this.getNodeGroups(d).length > 0 ? 3 : 2)
+            .attr("stroke-dasharray", d => this.getNodeGroups(d).length > 1 ? "5,3" : null)
             .on("mouseover", function (event, d) {
                 if (that.dragDisabled) return;
                 tooltip.transition()
@@ -309,7 +331,7 @@ class SystemVisualizer {
         this.groupLabels = g.append("g")
             .attr("class", "group-labels")
             .selectAll(".group-label")
-            .data(Object.entries(groups).filter(([name]) => name !== "undefined"))
+            .data(Object.entries(groups).filter(([name]) => name !== "ungrouped"))
             .enter().append("text")
             .attr("class", "group-label")
             .attr("text-anchor", "middle")
@@ -317,7 +339,40 @@ class SystemVisualizer {
             .style("font-weight", "bold")
             .style("fill", d => d3.rgb(this.groupColorScale(d[0])).darker(2))
             .style("pointer-events", "none")
-            .text(d => d[0]);
+            .text(d => {
+                // Anzeige für zusammengeführte Gruppen
+                if (d[1].allGroups && d[1].allGroups.length > 1) {
+                    return `${d[0]} (+${d[1].allGroups.length - 1})`;
+                }
+                return d[0];
+            });
+        this.groupLabels.append("title") // Tooltip für Details
+            .text(d => {
+                if (d[1].allGroups && d[1].allGroups.length > 1) {
+                    return `Zusammengeführte Gruppen:\n${d[1].allGroups.join('\n')}`;
+                }
+                return d[0];
+            });
+
+        const defs = g.select("defs");
+        nodes.forEach(d => {
+            const nodeGroups = this.getNodeGroups(d);
+            if (nodeGroups.length > 1) {
+                const gradient = defs.append("linearGradient")
+                    .attr("id", "multigroup-gradient-" + d.id)
+                    .attr("x1", "0%")
+                    .attr("y1", "0%")
+                    .attr("x2", "100%")
+                    .attr("y2", "100%");
+
+                // Farbstopps für jede Gruppe hinzufügen
+                nodeGroups.forEach((group, i) => {
+                    gradient.append("stop")
+                        .attr("offset", (i / (nodeGroups.length - 1) * 100) + "%")
+                        .attr("stop-color", this.groupColorScale(group));
+                });
+            }
+        });
 
         // Simulation starten
         this.simulationManager.initialize(nodes, links, groups);
@@ -385,9 +440,35 @@ class SystemVisualizer {
         this.groupHulls.attr("d", d => {
             const groupName = d[0];
             const simulation = this.simulationManager.simulation;
-            const groupNodes = simulation.nodes().filter(n => n.group === groupName);
 
-            if (groupNodes.length < 2) return ""; // Mindestens 2 Punkte für einen Pfad benötigt
+            // Alle Knoten finden, die zu dieser Gruppe gehören
+            // WICHTIGER UNTERSCHIED: Wir prüfen jetzt, ob ein Knoten zu EINER der ursprünglichen Gruppen gehört
+            const groupNodes = simulation.nodes().filter(n => {
+                const nodeGroups = this.getNodeGroups(n);
+
+                // Prüfe, ob der Knoten zu einer der ursprünglichen Gruppen gehört,
+                // die auf diese Repräsentanten-Gruppe abgebildet wurden
+                if (d[1].allGroups) {
+                    // Für eine zusammengeführte Gruppe prüfen, ob der Knoten zu einer der ursprünglichen Gruppen gehört
+                    return nodeGroups.some(ng => d[1].allGroups.includes(ng));
+                } else {
+                    // Für eine einzelne Gruppe normal prüfen
+                    return nodeGroups.includes(groupName);
+                }
+            });
+
+            // Wenn keine oder nur ein Knoten, zeichne einen kleinen Kreis um diesen
+            if (groupNodes.length === 0) {
+                return ""; // Keine Hülle, wenn keine Knoten
+            }
+
+            if (groupNodes.length === 1) {
+                // Bei nur einem Knoten: zeichne Kreis um diesen
+                const node = groupNodes[0];
+                return `M${node.x + 60},${node.y} 
+                    A60,60 0 1,1 ${node.x - 60},${node.y} 
+                    A60,60 0 1,1 ${node.x + 60},${node.y}`;
+            }
 
             // Zentroid der Gruppe berechnen
             const points = groupNodes.map(n => [n.x, n.y]);
@@ -404,13 +485,24 @@ class SystemVisualizer {
         this.groupLabels.attr("transform", d => {
             const groupName = d[0];
             const simulation = this.simulationManager.simulation;
-            const groupNodes = simulation.nodes().filter(n => n.group === groupName);
+
+            // Die gleiche Filterlogik wie bei den Hüllen verwenden
+            const groupNodes = simulation.nodes().filter(n => {
+                const nodeGroups = this.getNodeGroups(n);
+
+                if (d[1].allGroups) {
+                    return nodeGroups.some(ng => d[1].allGroups.includes(ng));
+                } else {
+                    return nodeGroups.includes(groupName);
+                }
+            });
 
             if (groupNodes.length === 0) return "translate(0,0)";
-
+            
             const points = groupNodes.map(n => [n.x, n.y]);
             const centroid = this.getCentroid(points);
-
+            
+            console.log(groupName, groupNodes, centroid);
             return `translate(${centroid[0]},${centroid[1] - 60})`;
         });
     }
@@ -532,44 +624,138 @@ class SystemVisualizer {
 
     /**
      * Identifiziert alle Gruppen und bereitet sie für d3.js vor
+     * Optimiert, um Gruppen mit identischen Knoten zusammenzuführen
      */
+    /**
+ * Erweiterte identifyGroups Methode, die sowohl Zusammenführung durchführt
+ * als auch bidirektionale Zuordnungen zwischen Gruppen speichert
+ */
     identifyGroups(nodes) {
-        const groupMap = {};
+        // Schritt 1: Initiale Gruppierung erstellen
+        const initialGroupMap = {};
+        const UNGROUPED_GROUP_NAME = "ungrouped";
 
-        // Erfasse alle Knoten mit Gruppen
+        // Datenstruktur für Gruppe -> Zugehörige Knoten
         nodes.forEach(node => {
-            if (node.group) {
-                if (!groupMap[node.group]) {
-                    groupMap[node.group] = {
-                        nodes: [],
-                        x: 0,
-                        y: 0
-                    };
-                }
-                groupMap[node.group].nodes.push(node);
+            const nodeGroups = this.getNodeGroups(node);
+
+            if (nodeGroups.length > 0) {
+                nodeGroups.forEach(groupName => {
+                    if (!initialGroupMap[groupName]) {
+                        initialGroupMap[groupName] = {
+                            nodes: [],
+                            nodeIds: new Set(),
+                            x: 0,
+                            y: 0
+                        };
+                    }
+                    initialGroupMap[groupName].nodes.push(node);
+                    initialGroupMap[groupName].nodeIds.add(node.id);
+                });
             } else {
-                // Knoten ohne Gruppe in "undefined" Gruppe
-                if (!groupMap["undefined"]) {
-                    groupMap["undefined"] = {
+                if (!initialGroupMap[UNGROUPED_GROUP_NAME]) {
+                    initialGroupMap[UNGROUPED_GROUP_NAME] = {
                         nodes: [],
+                        nodeIds: new Set(),
                         x: 0,
                         y: 0
                     };
                 }
-                groupMap["undefined"].nodes.push(node);
+                initialGroupMap[UNGROUPED_GROUP_NAME].nodes.push(node);
+                initialGroupMap[UNGROUPED_GROUP_NAME].nodeIds.add(node.id);
             }
         });
 
-        // Berechne initiale Positionen für die Gruppen
-        Object.entries(groupMap).forEach(([groupName, group], index) => {
-            const angle = (index / Object.keys(groupMap).length) * 2 * Math.PI;
+        // Schritt 2: Gruppen mit identischen Knoten identifizieren
+        const groupSignatures = {};  // Signatur -> Gruppen mit dieser Signatur
+
+        Object.entries(initialGroupMap).forEach(([groupName, groupData]) => {
+            if (groupName === UNGROUPED_GROUP_NAME) return;
+
+            // Erstelle eine eindeutige Signatur basierend auf den Knoten-IDs
+            const signature = Array.from(groupData.nodeIds).sort().join(',');
+
+            if (!groupSignatures[signature]) {
+                groupSignatures[signature] = [];
+            }
+
+            groupSignatures[signature].push(groupName);
+        });
+
+        // Schritt 3: Finale Gruppenkarte erstellen
+        const finalGroupMap = {};
+
+        // Mapping von ursprünglichen Gruppen zu repräsentativen Gruppen
+        // WICHTIG: Wir speichern dies als globale/Klasseninstanz-Variable
+        this.groupMap = {};
+
+        // Zuerst die ungrouped-Gruppe hinzufügen, falls vorhanden
+        if (initialGroupMap[UNGROUPED_GROUP_NAME]) {
+            finalGroupMap[UNGROUPED_GROUP_NAME] = initialGroupMap[UNGROUPED_GROUP_NAME];
+        }
+
+        // Dann die zusammengeführten Gruppen
+        Object.entries(groupSignatures).forEach(([signature, groups]) => {
+            // Die erste Gruppe als repräsentative Gruppe verwenden
+            const primaryGroup = groups[0];
+
+            // Gruppe in die finale Karte übernehmen
+            finalGroupMap[primaryGroup] = initialGroupMap[primaryGroup];
+
+            // Speichere alle ursprünglichen Gruppen als Metadaten
+            if (groups.length > 1) {
+                finalGroupMap[primaryGroup].allGroups = groups;
+                console.log(`Merged identical groups: ${groups.join(', ')} -> ${primaryGroup}`);
+
+                // Bidirektionale Zuordnung erstellen
+                groups.forEach(originalGroup => {
+                    this.groupMap[originalGroup] = primaryGroup;
+                });
+            } else {
+                // Auch für Einzelgruppen die Zuordnung erstellen
+                this.groupMap[primaryGroup] = primaryGroup;
+            }
+        });
+
+        // Schritt 4: Initiale Positionen berechnen
+        Object.entries(finalGroupMap).forEach(([groupName, group], index) => {
+            // Positionen gleichmäßig um den Mittelpunkt verteilen
+            const angle = (index / Object.keys(finalGroupMap).length) * 2 * Math.PI;
             const radius = Math.min(this.width, this.height) * 0.4;
 
             group.x = this.width / 2 + radius * Math.cos(angle);
             group.y = this.height / 2 + radius * Math.sin(angle);
         });
 
-        return groupMap;
+        return finalGroupMap;
+    }
+
+    /**
+     * Hilfsfunktion um zu prüfen, ob zwei Arrays die gleichen Elemente enthalten
+     * (Reihenfolge wird ignoriert)
+     */
+    arraysHaveSameElements(arr1, arr2) {
+        if (arr1.length !== arr2.length) return false;
+
+        const set1 = new Set(arr1);
+        for (const item of arr2) {
+            if (!set1.has(item)) return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Hilfsfunktion zum Extrahieren aller Gruppen eines Knotens
+     * Berücksichtigt neue groups-Arrays und Legacy group-Felder
+     */
+    getNodeGroups(node) {
+        if (Array.isArray(node.groups) && node.groups.length > 0) {
+            return node.groups;
+        } else if (node.group && typeof node.group === 'string') {
+            return [node.group];
+        }
+        return [];
     }
 
     /**
@@ -635,16 +821,24 @@ class SystemVisualizer {
         const outgoingDeps = this.data.dependencies.filter(dep => dep.source === system.id);
 
         let html = `
-            <div class="system-detail-card">
-                <p class="mb-1">${system.description}</p>
-                <div class="badge bg-${this.getCategoryClass(system.category)} mb-2">${system.category}</div>
-                <p><strong>Status:</strong> ${system.status}</p>
-                <p><strong>Bekannte Nutzung:</strong> ${system.knownUsage ? 'Ja' : 'Nein'}</p>
-        `;
+        <div class="system-detail-card">
+            <p class="mb-1">${system.description}</p>
+            <div class="badge bg-${this.getCategoryClass(system.category)} mb-2">${system.category}</div>
+            <p><strong>Status:</strong> ${system.status}</p>
+            <p><strong>Bekannte Nutzung:</strong> ${system.knownUsage ? 'Ja' : 'Nein'}</p>
+    `;
 
-        // Gruppen-Information hinzufügen, falls vorhanden
-        if (system.group) {
-            html += `<p><strong>Gruppe:</strong> <span class="badge bg-info">${system.group}</span></p>`;
+        // Gruppen-Information hinzufügen - Multi-Gruppen-Unterstützung
+        const groups = [];
+        if (Array.isArray(system.groups) && system.groups.length > 0) {
+            groups.push(...system.groups);
+        } else if (system.group && typeof system.group === 'string') {
+            groups.push(system.group);
+        }
+
+        if (groups.length > 0) {
+            html += `<p><strong>Gruppen:</strong> ${groups.map(group =>
+                `<span class="badge bg-info">${group}</span>`).join(' ')}</p>`;
         }
 
         if (system.tags && system.tags.length > 0) {
@@ -657,13 +851,13 @@ class SystemVisualizer {
             incomingDeps.forEach(dep => {
                 const source = this.data.systems.find(s => s.id === dep.source);
                 html += `
-                    <li class="list-group-item">
-                        <div class="d-flex w-100 justify-content-between">
-                            <strong>${source ? source.name : 'Unbekannt'}</strong>
-                            <span class="badge bg-secondary">${dep.protocol || 'Unbekannt'}</span>
-                        </div>
-                        <small>${dep.description || 'Keine Beschreibung'}</small>
-                    </li>`;
+                <li class="list-group-item">
+                    <div class="d-flex w-100 justify-content-between">
+                        <strong>${source ? source.name : 'Unbekannt'}</strong>
+                        <span class="badge bg-secondary">${dep.protocol || 'Unbekannt'}</span>
+                    </div>
+                    <small>${dep.description || 'Keine Beschreibung'}</small>
+                </li>`;
             });
             html += `</ul>`;
         }
@@ -673,13 +867,13 @@ class SystemVisualizer {
             outgoingDeps.forEach(dep => {
                 const target = this.data.systems.find(s => s.id === dep.target);
                 html += `
-                    <li class="list-group-item">
-                        <div class="d-flex w-100 justify-content-between">
-                            <strong>${target ? target.name : 'Unbekannt'}</strong>
-                            <span class="badge bg-secondary">${dep.protocol || 'Unbekannt'}</span>
-                        </div>
-                        <small>${dep.description || 'Keine Beschreibung'}</small>
-                    </li>`;
+                <li class="list-group-item">
+                    <div class="d-flex w-100 justify-content-between">
+                        <strong>${target ? target.name : 'Unbekannt'}</strong>
+                        <span class="badge bg-secondary">${dep.protocol || 'Unbekannt'}</span>
+                    </div>
+                    <small>${dep.description || 'Keine Beschreibung'}</small>
+                </li>`;
             });
             html += `</ul>`;
         }

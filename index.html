@@ -257,8 +257,22 @@
                             </select>
                         </div>
                         <div class="mb-3">
-                            <label for="system-group" class="form-label">Gruppe</label>
-                            <input type="text" class="form-control" id="system-group" list="group-list">
+                            <label for="system-groups-input" class="form-label">Gruppen</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="system-groups-input" list="group-list"
+                                    placeholder="Gruppe hinzufügen...">
+                                <button class="btn btn-outline-secondary" type="button" id="add-group-btn">
+                                    <i class="bi bi-plus"></i>
+                                </button>
+                            </div>
+                            <div class="form-text">Mehrere Gruppen durch Komma trennen oder einzeln hinzufügen</div>
+
+                            <div id="system-groups-container" class="mt-2 d-flex flex-wrap gap-2">
+                                <!-- Hier werden die ausgewählten Gruppen als Badges angezeigt -->
+                            </div>
+
+                            <input type="hidden" id="system-groups-value">
+
                             <datalist id="group-list">
                                 <!-- Wird dynamisch befüllt -->
                             </datalist>
@@ -365,6 +379,8 @@
 
             window.llm = llmManager; // Optional: Für Zugriff über die Konsole
 
+            setupGroupsUI(systemManager);
+
             // Toggle-Buttons für die Overlays
             document.getElementById('toggle-search').addEventListener('click', () => toggleOverlay('search-panel'));
             document.getElementById('toggle-filters').addEventListener('click', () => toggleOverlay('filter-panel'));
@@ -436,6 +452,45 @@
                 panel.classList.toggle('active');
             }
         });
+        function setupGroupsUI(systemManager) {
+            const groupInput = document.getElementById('system-groups-input');
+            const addButton = document.getElementById('add-group-btn');
+
+            // Event-Listener für das Hinzufügen von Gruppen mit dem Button
+            addButton.addEventListener('click', () => {
+                const value = groupInput.value.trim();
+                if (value) {
+                    // Wenn Kommas enthalten sind, mehrere Gruppen gleichzeitig hinzufügen
+                    if (value.includes(',')) {
+                        const groups = value.split(',').map(g => g.trim()).filter(g => g !== '');
+                        groups.forEach(group => systemManager.addGroupBadge(group));
+                    } else {
+                        systemManager.addGroupBadge(value);
+                    }
+                    groupInput.value = '';
+                }
+            });
+
+            // Event-Listener für das Hinzufügen von Gruppen mit Enter
+            groupInput.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    addButton.click();
+                }
+            });
+
+            // Auto-Vervollständigung bei Komma
+            groupInput.addEventListener('input', () => {
+                const value = groupInput.value;
+                if (value.endsWith(',')) {
+                    const newGroup = value.slice(0, -1).trim();
+                    if (newGroup) {
+                        systemManager.addGroupBadge(newGroup);
+                        groupInput.value = '';
+                    }
+                }
+            });
+        }
         // Diese Funktion nach der LlmIntegrationManager-Initialisierung aufrufen
         function setupLlmChatInterface(llmManager) {
             // UI-Elemente
@@ -510,7 +565,7 @@
                 let currentResult = "";
                 const result = await llmManager.processUserInput(userInput, (token) => {
                     currentResult += token;
-                    messageElement.innerHTML = marked? marked.parse(currentResult) : currentResult;
+                    messageElement.innerHTML = marked ? marked.parse(currentResult) : currentResult;
                 });
                 console.log(result);
 
@@ -518,7 +573,7 @@
                 loadingIndicator.style.display = 'none';
 
                 // Antwort anzeigen
-                messageElement.innerHTML = marked? marked.parse(result.originalResponse) : result.originalResponse;
+                messageElement.innerHTML = marked ? marked.parse(result.originalResponse) : result.originalResponse;
 
                 // Bei YAML-Antwort mit Änderungen
                 if (result.success && result.yamlData) {

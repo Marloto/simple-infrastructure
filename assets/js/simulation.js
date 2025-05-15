@@ -10,21 +10,21 @@ class SimulationManager {
             groupForceStrength: options.groupForceStrength || 0.5,
             ...options
         };
-        
+
         this.simulation = null;
         this.nodeCache = options.nodeCache || null;
         this.width = options.width || 800;
         this.height = options.height || 600;
-        
+
         // For throttling cache updates
         this.lastCacheUpdate = 0;
         this.cacheUpdateInterval = options.cacheUpdateInterval || 300;
-        
+
         // Callbacks
-        this.onTick = options.onTick || (() => {});
-        this.onEnd = options.onEnd || (() => {});
+        this.onTick = options.onTick || (() => { });
+        this.onEnd = options.onEnd || (() => { });
     }
-    
+
     /**
      * Initialize simulation with nodes and links
      */
@@ -33,10 +33,10 @@ class SimulationManager {
         if (this.nodeCache) {
             this.applyNodePositionsFromCache(nodes);
         }
-        
+
         // Calculate initial positions for nodes without cache positions
         this.applyInitialPositions(nodes);
-        
+
         // Create simulation
         this.simulation = d3.forceSimulation(nodes)
             .force("link", d3.forceLink(links)
@@ -47,47 +47,56 @@ class SimulationManager {
             .force("center", d3.forceCenter(this.width / 2, this.height / 2))
             .force("collision", d3.forceCollide()
                 .radius(this.options.collisionRadius));
-        
+
         // Add group force if groups are provided
         if (groups && Object.keys(groups).length > 0) {
-            this.simulation.force("group", d3.forceCluster()
+            this.simulation.force("group", d3.forceClusterMultiGroup()
                 .centers(groups)
                 .strength(this.options.groupForceStrength));
         }
-        
+
         // Add containment force to keep nodes within bounds
         this.simulation.force("containment", this.createContainmentForce());
-        
+
         // Register tick handler
         this.simulation.on("tick", () => {
             // Update node cache periodically during simulation
             this.throttledUpdateNodeCache();
-            
+
             // Call external tick handler
             this.onTick();
         });
-        
+
         // Register end handler
         this.simulation.on("end", () => {
             // Save final positions to cache
             if (this.nodeCache) {
                 this.nodeCache.updateBatch(this.simulation.nodes());
             }
-            
+
             // Call external end handler
             this.onEnd();
         });
-        
+
         return this.simulation;
     }
-    
+
+    getNodeGroups(node) {
+        if (Array.isArray(node.groups) && node.groups.length > 0) {
+            return node.groups;
+        } else if (node.group && typeof node.group === 'string') {
+            return [node.group];
+        }
+        return [];
+    }
+
     /**
      * Create a force that keeps nodes within the container bounds
      */
     createContainmentForce() {
         // Add padding to prevent nodes from touching the edge
         const padding = 50;
-        
+
         return () => {
             for (let node of this.simulation.nodes()) {
                 // Gradually increase force as node approaches boundaries
@@ -96,26 +105,26 @@ class SimulationManager {
                 } else if (node.x > this.width - padding) {
                     node.vx -= (node.x - (this.width - padding)) * 0.1;
                 }
-                
+
                 if (node.y < padding) {
                     node.vy += (padding - node.y) * 0.1;
                 } else if (node.y > this.height - padding) {
                     node.vy -= (node.y - (this.height - padding)) * 0.1;
                 }
-                
+
                 // Dampen velocity for stable movement
                 node.vx *= 0.9;
                 node.vy *= 0.9;
             }
         };
     }
-    
+
     /**
      * Apply cached positions to nodes
      */
     applyNodePositionsFromCache(nodes) {
         if (!nodes || !this.nodeCache) return 0;
-        
+
         let cacheHits = 0;
         nodes.forEach(node => {
             if (node.id) {
@@ -124,29 +133,29 @@ class SimulationManager {
                     // Position from cache
                     node.x = cachedPosition.x;
                     node.y = cachedPosition.y;
-                    
+
                     // Reduced velocity for smoother transitions
                     node.vx = (cachedPosition.vx || 0) * 0.3;
                     node.vy = (cachedPosition.vy || 0) * 0.3;
-                    
+
                     // Briefly fix position for visual stability
                     node.fx = cachedPosition.x;
                     node.fy = cachedPosition.y;
-                    
+
                     // Schedule release of fixed position
                     setTimeout(() => {
                         node.fx = null;
                         node.fy = null;
                     }, 500);
-                    
+
                     cacheHits++;
                 }
             }
         });
-        
+
         return cacheHits;
     }
-    
+
     /**
      * Calculate starting positions for nodes without cache positions
      */
@@ -154,39 +163,52 @@ class SimulationManager {
         // Find nodes without position
         const nodesWithoutPosition = nodes.filter(node =>
             node.x === undefined || node.y === undefined);
-            
+
         if (nodesWithoutPosition.length === 0) return;
-        
+
         // Get positioned nodes
         const positionedNodes = nodes.filter(node =>
             node.x !== undefined && node.y !== undefined);
-            
+
         // For each new node
         nodesWithoutPosition.forEach(node => {
-            let referenceNodes;
+            let referenceNodes = [];
             let targetPosition;
-            
-            // Reference nodes based on group or all nodes
-            if (node.group) {
-                referenceNodes = positionedNodes.filter(n => n.group === node.group);
+
+            // Reference nodes based on groups or all nodes
+            const nodeGroups = this.getNodeGroups(node);
+
+            if (nodeGroups.length > 0) {
+                // Sammeln aller Referenzknoten für alle Gruppen des Knotens
+                nodeGroups.forEach(group => {
+                    const groupNodes = positionedNodes.filter(n => {
+                        const nGroups = this.getNodeGroups(n);
+                        return nGroups.includes(group);
+                    });
+
+                    referenceNodes = [...referenceNodes, ...groupNodes];
+                });
+
+                // Duplikate entfernen
+                referenceNodes = Array.from(new Set(referenceNodes));
             }
-            
-            if (!referenceNodes || referenceNodes.length === 0) {
+
+            if (referenceNodes.length === 0) {
                 referenceNodes = positionedNodes;
             }
-            
-            // Calculate target position (group center)
+
+            // Calculate target position (between all group centers)
             if (referenceNodes.length > 0) {
                 let sumX = 0, sumY = 0;
                 referenceNodes.forEach(refNode => {
                     sumX += refNode.x;
                     sumY += refNode.y;
                 });
-                
+
                 // Group center with offset
                 const isGroupCentered = referenceNodes !== positionedNodes;
                 const offset = isGroupCentered ? 50 : 150;
-                
+
                 targetPosition = {
                     x: (sumX / referenceNodes.length) + (Math.random() - 0.5) * offset,
                     y: (sumY / referenceNodes.length) + (Math.random() - 0.5) * offset
@@ -198,25 +220,25 @@ class SimulationManager {
                     y: this.height / 2 + (Math.random() - 0.5) * 200
                 };
             }
-            
+
             // Starting position at group center edge
             const distanceFromCenter = referenceNodes.length > 0 ? 100 : 200;
             const angle = Math.random() * Math.PI * 2;  // Random angle
-            
+
             node.x = targetPosition.x + Math.cos(angle) * distanceFromCenter;
             node.y = targetPosition.y + Math.sin(angle) * distanceFromCenter;
-            
+
             // Initial velocity toward target position
             const dx = targetPosition.x - node.x;
             const dy = targetPosition.y - node.y;
-            
+
             // Gentle movement toward center
             const speedFactor = 0.01;  // Very low for gentle movement
             node.vx = dx * speedFactor;
             node.vy = dy * speedFactor;
         });
     }
-    
+
     /**
      * Update node cache throttled
      */
@@ -227,7 +249,7 @@ class SimulationManager {
             this.nodeCache.updateBatch(this.simulation.nodes());
         }
     }
-    
+
     /**
      * Restart simulation with alpha
      */
@@ -236,7 +258,7 @@ class SimulationManager {
             this.simulation.alpha(alpha).restart();
         }
     }
-    
+
     /**
      * Stop simulation
      */
@@ -245,21 +267,21 @@ class SimulationManager {
             this.simulation.stop();
         }
     }
-    
+
     /**
      * Update simulation size
      */
     updateSize(width, height) {
         this.width = width;
         this.height = height;
-        
+
         if (this.simulation) {
             this.simulation.force("center", d3.forceCenter(width / 2, height / 2));
             // Restart with low alpha to adjust positions
             this.restart(0.1);
         }
     }
-    
+
     /**
      * Create drag behavior
      */
@@ -269,7 +291,7 @@ class SimulationManager {
             .on("drag", (event, d) => this.dragged(event, d))
             .on("end", (event, d) => this.dragended(event, d));
     }
-    
+
     /**
      * Handle drag start
      */
@@ -278,7 +300,7 @@ class SimulationManager {
         d.fx = d.x;
         d.fy = d.y;
     }
-    
+
     /**
      * Handle dragging
      */
@@ -286,13 +308,13 @@ class SimulationManager {
         d.fx = event.x;
         d.fy = event.y;
     }
-    
+
     /**
      * Handle drag end
      */
     dragended(event, d) {
         if (!event.active) this.simulation.alphaTarget(0);
-        
+
         // Only persist position in cache if dragged
         if (this.nodeCache && d.id) {
             this.nodeCache.set(d.id, {
@@ -303,7 +325,7 @@ class SimulationManager {
                 group: d.group
             });
         }
-        
+
         // Keep position fixed where user dropped it
         // Or release: 
         d.fx = null;
@@ -331,6 +353,79 @@ d3.forceCluster = function () {
             const k = strength * alpha;
             d.vx += (groupCenter.x - d.x) * k;
             d.vy += (groupCenter.y - d.y) * k;
+        });
+    }
+
+    force.initialize = function (_) {
+        nodes = _;
+    };
+
+    force.centers = function (_) {
+        return arguments.length ? (centers = _, force) : centers;
+    };
+
+    force.strength = function (_) {
+        return arguments.length ? (strength = _, force) : strength;
+    };
+
+    return force;
+};
+
+d3.forceClusterMultiGroup = function () {
+    let strength = 0.1;
+    let centers = {};
+    let nodes = [];
+
+    // Gewichtung für jede Gruppe (1/Anzahl der Gruppen eines Knotens)
+    // Damit Knoten mit weniger Gruppen stärker zu ihren Gruppen hingezogen werden
+    function getGroupWeight(node) {
+        const nodeGroups = getNodeGroups(node);
+        return nodeGroups.length > 0 ? 1 / nodeGroups.length : 0;
+    }
+
+    // Hilfsfunktion zum Extrahieren aller Gruppen eines Knotens
+    function getNodeGroups(node) {
+        if (Array.isArray(node.groups) && node.groups.length > 0) {
+            return node.groups;
+        } else if (node.group && typeof node.group === 'string') {
+            return [node.group];
+        }
+        return [];
+    }
+
+    function force(alpha) {
+        // Für jeden Knoten
+        nodes.forEach(d => {
+            const nodeGroups = getNodeGroups(d);
+            if (nodeGroups.length === 0) return; // Überspringen, wenn keine Gruppe
+
+            // Vektor für die gesamte Kraft auf den Knoten
+            let totalForceX = 0;
+            let totalForceY = 0;
+            let totalWeight = 0;
+
+            // Kraft von jeder Gruppe berechnen
+            nodeGroups.forEach(groupName => {
+                const groupCenter = centers[groupName];
+                if (!groupCenter) return;
+
+                // Gewichtung für diese Gruppe
+                const weight = getGroupWeight(d);
+                totalWeight += weight;
+
+                // Je nach Anzahl der Gruppen, in denen der Knoten ist, die Kraft anpassen
+                const k = strength * alpha * weight;
+
+                // Kraft in Richtung des Gruppenzentrums
+                totalForceX += (groupCenter.x - d.x) * k;
+                totalForceY += (groupCenter.y - d.y) * k;
+            });
+
+            // Gesamtkraft auf den Knoten anwenden
+            if (totalWeight > 0) {
+                d.vx += totalForceX;
+                d.vy += totalForceY;
+            }
         });
     }
 
