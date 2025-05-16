@@ -18,8 +18,7 @@ function loadSystemData() {
 
         return parsedData;
     } catch (error) {
-        console.error('Error loading data:', error);
-        showNotification('Error loading data', 'danger');
+        console.log('Could not load data, fallback to new data set', error);
         return {
             systems: [],
             dependencies: []
