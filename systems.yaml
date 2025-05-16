@@ -1,59 +1,69 @@
-# IT-Infrastruktur Systeme und Abhängigkeiten
-# Definiert alle Systeme und deren Abhängigkeiten für die Visualisierung
+# Web Application Systems and Dependencies
+# Defines all systems and their dependencies for visualization
 
-# Liste aller Systeme
+# List of all systems
 systems:
-  - id: entra
-    name: Microsoft Entra ID
-    description: Zentrales Enterprise Resource Planning System
-    category: core
-    group: identity
+  - id: webapp
+    name: Web Application Frontend
+    description: User interface for end users, runs in the browser
+    category: frontend
+    groups: 
+      - ui
     status: active
     knownUsage: true
     tags:
-      - auth
+      - web
+      - ui
 
-  - id: ad
-    name: Microsoft Active Directory
-    description: Zentrales Verzeichnisdienstsystem, lokale Verwaltung, gespiegelt mit Entra
+  - id: backend
+    name: Application Backend
+    description: Server-side logic and API for the web application
     category: core
     status: active
-    group: identity
+    groups: 
+      - api
     knownUsage: true
     tags:
-      - auth
+      - api
+      - logic
 
-  - id: primuss
-    name: PRIMUSS
-    description: Managementsystem für die Verwaltung von Studierenden und Studiengängen
+  - id: database
+    name: Database
+    description: Relational database for storing application data
     category: data
     status: active
     knownUsage: true
     tags:
-      - management
-      - analytics
+      - storage
+      - sql
 
-  - id: other
-    name: Other Service
-    description: More things...
-    category: data
+  - id: auth
+    name: Authentication Service
+    description: External service for user authentication
+    category: service
     status: active
     knownUsage: true
     tags:
-      - management
-      - analytics
+      - auth
+      - security
 
-
-# Liste aller Abhängigkeiten zwischen Systemen
+# List of all dependencies between systems
 dependencies:
-  - source: primuss
-    target: ad
-    type: data
-    description: Authentifizierung von Benutzern über LDAP
-    protocol: LDAP
+  - source: webapp
+    target: backend
+    type: api
+    description: Communication with the backend via REST API
+    protocol: HTTPS
 
-  - source: ad
-    target: entra
+  - source: backend
+    target: database
     type: data
-    description: Synchronisation von Benutzerdaten
-    protocol: Script
+    description: Access and management of application data
+    protocol: SQL
+
+  - source: backend
+    target: auth
+    type: auth
+    description: Verification of user identities
+    protocol: OAuth2
+
