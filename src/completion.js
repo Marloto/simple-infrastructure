@@ -155,7 +155,7 @@ class OpenAiApi extends AbstractLlmApi {
             const body = JSON.stringify({
                 model: this.model || "gpt-4-turbo-preview",
                 messages: this.messages,
-                max_tokens: 1024,
+                max_tokens: 4096,
                 temperature: 0.7,
                 stream: true
             });
