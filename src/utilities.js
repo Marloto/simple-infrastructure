@@ -1,16 +1,14 @@
-
-
 /**
- * Zeigt eine Benachrichtigung am oberen Bildschirmrand an
- * @param {string} message - Die anzuzeigende Nachricht
- * @param {string} type - Der Bootstrap-Typ (success, danger, warning, info)
+ * Displays a notification at the top of the screen
+ * @param {string} message - The message to display
+ * @param {string} type - The Bootstrap type (success, danger, warning, info)
  */
 export function showNotification(message, type = 'info') {
-    // Prüfe, ob ein Benachrichtigungscontainer existiert
+    // Check if a notification container exists
     let notificationContainer = document.getElementById('notification-container');
     
     if (!notificationContainer) {
-        // Erstelle einen neuen Container, wenn keiner existiert
+        // Create a new container if none exists
         notificationContainer = document.createElement('div');
         notificationContainer.id = 'notification-container';
         notificationContainer.style.position = 'fixed';
@@ -21,19 +19,19 @@ export function showNotification(message, type = 'info') {
         document.body.appendChild(notificationContainer);
     }
     
-    // Erstelle die Benachrichtigung
+    // Create the notification
     const notification = document.createElement('div');
     notification.className = `alert alert-${type} alert-dismissible fade show`;
     notification.role = 'alert';
     notification.innerHTML = `
         ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Schließen"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     `;
     
-    // Füge die Benachrichtigung zum Container hinzu
+    // Add the notification to the container
     notificationContainer.appendChild(notification);
     
-    // Entferne die Benachrichtigung nach 5 Sekunden
+    // Remove the notification after 5 seconds
     setTimeout(() => {
         notification.classList.remove('show');
         setTimeout(() => {

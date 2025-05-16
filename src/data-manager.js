@@ -1,22 +1,25 @@
+import { EventEmitter  } from "./event-emitter.js";
+import { showNotification } from './utilities.js';
+
 /**
- * Lädt die Systemdaten aus der YAML-Datei
- * @returns {Promise<Object>} Das geparste Datenobjekt
+ * Loads the system data from the YAML file
+ * @returns {Promise<Object>} The parsed data object
  */
 function loadSystemData() {
     try {
-        // YAML-Datei laden
+        // Load YAML file
         const yamlText = localStorage.getItem('systems_yaml');
         if (!yamlText) {
-            throw new Error('Konnte Systemdaten nicht aus dem lokalen Speicher laden');
+            throw new Error('Could not load system data from local storage');
         }
 
-        // YAML zu JavaScript-Objekt parsen
+        // Parse YAML to JavaScript object
         const parsedData = jsyaml.load(yamlText);
 
         return parsedData;
     } catch (error) {
-        console.error('Fehler beim Laden der Daten:', error);
-        showNotification('Fehler beim Laden der Daten', 'danger');
+        console.error('Error loading data:', error);
+        showNotification('Error loading data', 'danger');
         return {
             systems: [],
             dependencies: []
@@ -25,34 +28,31 @@ function loadSystemData() {
 }
 
 /**
- * Speichert die Systemdaten als YAML im lokalen Speicher
- * @param {Object} data - Die zu speichernden Systemdaten
+ * Saves the system data as YAML in local storage
+ * @param {Object} data - The system data to save
  */
 function saveSystemData(data) {
     try {
         const yamlText = jsyaml.dump(data);
         localStorage.setItem('systems_yaml', yamlText);
-        showNotification('Daten erfolgreich gespeichert', 'success');
+        showNotification('Data saved successfully', 'success');
     } catch (error) {
-        console.error('Fehler beim Speichern der Daten:', error);
-        showNotification('Fehler beim Speichern der Daten', 'danger');
+        console.error('Error saving data:', error);
+        showNotification('Error saving data', 'danger');
     }
 }
 
 
 /**
- * DataManager - Zentrale Klasse zur Verwaltung der Systemdaten
- * Dient als Single Source of Truth für alle anderen Komponenten
+ * DataManager - Central class for managing system data
+ * Serves as the single source of truth for all other components
  */
-export class DataManager {
+export class DataManager extends EventEmitter {
     constructor() {
+        super();
         this.data = loadSystemData();
-        this.eventListeners = {
-            'dataChanged': []
-        };
-
         let saveTimeout = null;
-        this.addEventListener('dataChanged', () => {
+        this.on('dataChanged', () => {
             if (saveTimeout) clearTimeout(saveTimeout);
             saveTimeout = setTimeout(() => {
                 saveSystemData(this.data);
@@ -62,38 +62,38 @@ export class DataManager {
     }
 
     /**
-     * Initialisiert den DataManager mit Daten
-     * @param {Object} data - Die initialien Systemdaten
+     * Initializes the DataManager with data
+     * @param {Object} data - The initial system data
      */
     initialize(data) {
         if (data && data.systems && data.dependencies) {
             this.data = data;
         }
-        this.notifyListeners('dataChanged');
+        this.emit('dataChanged', this.data);
     }
 
     /**
-     * Gibt die aktuellen Systemdaten zurück
-     * @returns {Object} Die Systemdaten
+     * Returns the current system data
+     * @returns {Object} The system data
      */
     getData() {
         return this.data;
     }
 
     /**
-     * Aktualisiert die Systemdaten vollständig
-     * @param {Object} newData - Die neuen Systemdaten
+     * Completely updates the system data
+     * @param {Object} newData - The new system data
      */
     setData(newData, notify = true) {
         if (newData && newData.systems && newData.dependencies) {
             this.data = newData;
-            notify && this.notifyListeners('dataChanged');
+            notify && this.emit('dataChanged', this.data);
         }
     }
 
     /**
-     * Gibt alle einzigartigen Gruppen zurück, die in den Systemdaten vorhanden sind
-     * @returns {Array} Array mit einzigartigen Gruppennamen
+     * Returns all unique groups present in the system data
+     * @returns {Array} Array of unique group names
      */
     getAllGroups() {
         const groups = new Set();
@@ -114,26 +114,26 @@ export class DataManager {
     }
 
     /**
-     * Hilfsfunktion zur Sicherstellung, dass jedes System ein 'groups'-Array hat
-     * Konvertiert einzelne 'group'-Strings in Arrays falls notwendig (Abwärtskompatibilität)
-     * @param {Object} system - Das zu überprüfende System
+     * Helper function to ensure each system has a 'groups' array
+     * Converts single 'group' strings to arrays if necessary (backward compatibility)
+     * @param {Object} system - The system to check
      */
     ensureGroupsArray(system) {
-        // Fall 1: system hat bereits ein groups-Array -> nichts tun
+        // Case 1: system already has a groups array -> do nothing
         if (Array.isArray(system.groups)) {
-            // Entferne leere Werte und doppelte Einträge
+            // Remove empty values and duplicates
             system.groups = system.groups
                 .filter(group => group && group.trim() !== '')
                 .filter((group, index, self) => self.indexOf(group) === index);
 
-            // Legacy group-Feld entfernen, wenn vorhanden
+            // Remove legacy group field if present
             delete system.group;
             return;
         }
 
-        // Fall 2: system hat ein group-Feld -> konvertieren zu groups-Array
+        // Case 2: system has a group field -> convert to groups array
         if (typeof system.group === 'string' && system.group.trim() !== '') {
-            // Wenn group ein Komma-separierter String ist, teilen
+            // If group is a comma-separated string, split
             if (system.group.includes(',')) {
                 system.groups = system.group.split(',')
                     .map(g => g.trim())
@@ -145,91 +145,91 @@ export class DataManager {
             return;
         }
 
-        // Fall 3: system hat weder group noch groups
+        // Case 3: system has neither group nor groups
         if (!system.groups) {
             system.groups = [];
-            delete system.group; // Sicherstellen, dass kein leeres group-Feld existiert
+            delete system.group; // Ensure no empty group field exists
         }
     }
 
     /**
-     * Fügt ein neues System hinzu
-     * @param {Object} system - Das neue System
-     * @returns {string} Die ID des hinzugefügten Systems
+     * Adds a new system
+     * @param {Object} system - The new system
+     * @returns {string} The ID of the added system
      */
     addSystem(system, notify = true) {
         if (!system.id) {
             system.id = this.generateUniqueId();
         }
 
-        // Kompatibilitätshandling für die Konvertierung von 'group' zu 'groups'
+        // Compatibility handling for converting 'group' to 'groups'
         this.ensureGroupsArray(system);
 
         this.data.systems.push(system);
-        notify && this.notifyListeners('dataChanged');
+        notify && this.emit('dataChanged', this.data);
         return system.id;
     }
 
     /**
-     * Aktualisiert ein bestehendes System
-     * @param {Object} updatedSystem - Das aktualisierte System
-     * @returns {boolean} True, wenn das System gefunden und aktualisiert wurde
+     * Updates an existing system
+     * @param {Object} updatedSystem - The updated system
+     * @returns {boolean} True if the system was found and updated
      */
     updateSystem(updatedSystem, notify = true) {
         const index = this.data.systems.findIndex(sys => sys.id === updatedSystem.id);
         if (index !== -1) {
-            // Kompatibilitätshandling für die Konvertierung von 'group' zu 'groups'
+            // Compatibility handling for converting 'group' to 'groups'
             this.ensureGroupsArray(updatedSystem);
 
             this.data.systems[index] = updatedSystem;
-            notify && this.notifyListeners('dataChanged');
+            notify && this.emit('dataChanged', this.data);
             return true;
         }
         return false;
     }
 
     /**
-     * Löscht ein System und zugehörige Abhängigkeiten
-     * @param {string} systemId - Die ID des zu löschenden Systems
-     * @returns {boolean} True, wenn das System gefunden und gelöscht wurde
+     * Deletes a system and associated dependencies
+     * @param {string} systemId - The ID of the system to delete
+     * @returns {boolean} True if the system was found and deleted
      */
     deleteSystem(systemId, notify = true) {
         const systemIndex = this.data.systems.findIndex(sys => sys.id === systemId);
         if (systemIndex === -1) return false;
 
-        // System löschen
+        // Delete system
         this.data.systems.splice(systemIndex, 1);
 
-        // Zugehörige Abhängigkeiten löschen
+        // Delete associated dependencies
         this.data.dependencies = this.data.dependencies.filter(
             dep => dep.source !== systemId && dep.target !== systemId
         );
 
-        notify && this.notifyListeners('dataChanged');
+        notify && this.emit('dataChanged', this.data);
         return true;
     }
 
     /**
-     * Fügt eine neue Abhängigkeit hinzu
-     * @param {Object} dependency - Die neue Abhängigkeit
-     * @returns {boolean} True bei Erfolg
+     * Adds a new dependency
+     * @param {Object} dependency - The new dependency
+     * @returns {boolean} True on success
      */
     addDependency(dependency, notify = true) {
-        // Prüfen, ob Quell- und Zielsystem existieren
+        // Check if source and target systems exist
         const sourceExists = this.data.systems.some(sys => sys.id === dependency.source);
         const targetExists = this.data.systems.some(sys => sys.id === dependency.target);
 
         if (!sourceExists || !targetExists) return false;
 
         this.data.dependencies.push(dependency);
-        notify && this.notifyListeners('dataChanged');
+        notify && this.emit('dataChanged', this.data);
         return true;
     }
 
     /**
-     * Löscht eine Abhängigkeit
-     * @param {Object} dependency - Die zu löschende Abhängigkeit (muss source und target enthalten)
-     * @returns {boolean} True, wenn die Abhängigkeit gefunden und gelöscht wurde
+     * Deletes a dependency
+     * @param {Object} dependency - The dependency to delete (must contain source and target)
+     * @returns {boolean} True if the dependency was found and deleted
      */
     deleteDependency(dependency, notify = true) {
         const index = this.data.dependencies.findIndex(
@@ -238,103 +238,82 @@ export class DataManager {
 
         if (index !== -1) {
             this.data.dependencies.splice(index, 1);
-            notify && this.notifyListeners('dataChanged');
+            notify && this.emit('dataChanged', this.data);
             return true;
         }
         return false;
     }
 
     /**
-     * Wendet einen Batch von Änderungen auf einmal an und löst nur ein einziges Update-Event aus
-     * @param {Object} differences - Objekt mit added, modified und removed Arrays für systems und dependencies
-     * @returns {boolean} True bei Erfolg
+     * Applies a batch of changes at once and triggers only a single update event
+     * @param {Object} differences - Object with added, modified and removed arrays for systems and dependencies
+     * @returns {boolean} True on success
      */
     applyBatch(differences) {
         if (!differences) return false;
 
         try {
-            // Systeme entfernen
+            // Remove systems
             if (differences.removed && differences.removed.systems) {
                 differences.removed.systems.forEach(system => {
                     this.deleteSystem(system.id, false);
                 });
             }
 
-            // Systeme aktualisieren
+            // Update systems
             if (differences.modified && differences.modified.systems) {
                 differences.modified.systems.forEach(modifiedSystem => {
                     this.updateSystem(modifiedSystem, false);
                 });
             }
 
-            // Neue Systeme hinzufügen
+            // Add new systems
             if (differences.added && differences.added.systems) {
                 differences.added.systems.forEach(newSystem => {
                     this.addSystem(newSystem, false);
                 });
             }
 
-            // Abhängigkeiten entfernen
+            // Remove dependencies
             if (differences.removed && differences.removed.dependencies) {
                 differences.removed.dependencies.forEach(dependency => {
                     this.deleteDependency(dependency, false);
                 });
             }
 
-            // Abhängigkeiten aktualisieren
+            // Update dependencies
             if (differences.modified && differences.modified.dependencies) {
                 differences.modified.dependencies.forEach(modifiedDep => {
-                    // Löschen und neu hinzufügen, da updateDependency nicht existiert
+                    // Delete and re-add, since updateDependency does not exist
                     this.deleteDependency(modifiedDep, false);
                     this.addDependency(modifiedDep, false);
                 });
             }
 
-            // Neue Abhängigkeiten hinzufügen
+            // Add new dependencies
             if (differences.added && differences.added.dependencies) {
                 differences.added.dependencies.forEach(newDep => {
                     this.addDependency(newDep, false);
                 });
             }
 
-            // Nur einmal alle Listener benachrichtigen
-            this.notifyListeners('dataChanged');
+            // Notify all listeners only once
+            this.emit('dataChanged', this.data);
 
             return true;
         } catch (error) {
-            console.error("Fehler beim Anwenden der Batch-Änderungen:", error);
+            console.error("Error applying batch changes:", error);
             return false;
         }
     }
 
     /**
-     * Generiert eine eindeutige ID
-     * @returns {string} Eine eindeutige ID
+     * Generates a unique ID
+     * @returns {string} A unique ID
      */
     generateUniqueId() {
         const timestamp = new Date().getTime();
         const randomPart = Math.floor(Math.random() * 10000);
         return `sys_${timestamp}_${randomPart}`;
-    }
-
-    /**
-     * Fügt einen Event-Listener hinzu
-     * @param {string} event - Der Event-Name (z.B. 'dataChanged')
-     * @param {Function} callback - Die Callback-Funktion
-     */
-    addEventListener(event, callback) {
-        if (this.eventListeners[event]) {
-            this.eventListeners[event].push(callback);
-        }
-    }
-
-    /**
-     * Benachrichtigt alle Listener über ein Event
-     * @param {string} event - Der Event-Name
-     */
-    notifyListeners(event) {
-        if (this.eventListeners[event]) {
-            this.eventListeners[event].forEach(callback => callback(this.data));
-        }
     }
 }

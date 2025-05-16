@@ -1,4 +1,5 @@
 import {createGenerator, handleSse} from './completion.js'
+import { showNotification } from './utilities.js';
 
 /**
  * LlmIntegrationManager - Verwaltet die Integration eines LLM in die Systemvisualisierung
@@ -7,21 +8,51 @@ import {createGenerator, handleSse} from './completion.js'
 export class LlmIntegrationManager {
     constructor(options = {}) {
         this.dataManager = null;
-        this.generator = null;
         this.initialized = false;
         this.isProcessing = false;
 
         // Konfiguration mit Standardwerten
         this.config = {
             apiKey: options.apiKey || "",
-            llmType: options.llmType || "claude", // claude, openai, custom
-            llmModel: options.llmModel || "claude-3-7-sonnet-20250219",
+            llmType: options.llmType || "", // claude, openai, custom
+            llmModel: options.llmModel || "", // like claude-3-7-sonnet-20250219
             llmUrl: options.llmUrl || "", // Nur für custom notwendig
-            systemPrompt: options.systemPrompt || this.getDefaultSystemPrompt(),
-            promptPrefix: options.promptPrefix || "",
+            systemPrompt: options.systemPrompt || "",
+            promptPrefix: options.promptPrefixs || "",
             onMessageReceived: options.onMessageReceived || null,
             onTyping: options.onTyping || null
         };
+    }
+
+    /**
+     * Updates the LLM integration configuration with the provided parameters.
+     *
+     * @param {string} llmType - The type of the language model (e.g., 'openai', 'anthropic').
+     * @param {string} llmModel - The specific model to use (e.g., 'gpt-4', 'claude-2').
+     * @param {string} llmApiKey - The API key for authenticating requests to the LLM service.
+     * @param {string} [llmSystemPrompt] - Optional system prompt to use; defaults to the class's default if not provided.
+     * @param {string} [llmPromptPrefix] - Optional prefix to prepend to prompts; defaults to an empty string if not provided.
+     */
+    updateConfig(llmType, llmModel, llmApiKey, llmSystemPrompt = undefined, llmPromptPrefix = undefined) {
+        this.config.llmType = llmType;
+        this.config.llmModel = llmModel;
+        this.config.apiKey = llmApiKey;
+        this.config.systemPrompt = llmSystemPrompt || this.getDefaultSystemPrompt();
+        this.config.promptPrefix = llmPromptPrefix || this.getDefaultPromptPrefix();
+
+        if(this.isConfigurated()) {
+            this.createLlmGenerator();
+        }
+    }
+
+    /**
+     * Checks if the configuration is complete by verifying the presence of
+     * `apiKey`, `llmType`, and `llmModel` properties in the config object.
+     *
+     * @returns {boolean} Returns `true` if all required configuration properties are set; otherwise, `false`.
+     */
+    isConfigurated() {
+        return this.config.apiKey && this.config.llmType && this.config.llmModel;
     }
 
     /**
@@ -38,9 +69,6 @@ export class LlmIntegrationManager {
 
         this.dataManager = dataManager;
 
-        // LLM-Generator erstellen
-        this.createLlmGenerator();
-
         this.initialized = true;
         console.log("LlmIntegrationManager wurde initialisiert");
     }
@@ -50,14 +78,15 @@ export class LlmIntegrationManager {
      */
     createLlmGenerator() {
         const variables = {
-            currentData: JSON.stringify(this.dataManager.getData())
+            example: this.getExampleDataAsPromptBlock(),
+            dataStructure: this.getDataStructureAsPromptBlock()
         };
 
         // Generator mit der createGenerator-Funktion erstellen
-        this.generator = createGenerator(
+        const generator = createGenerator(
             variables,
-            this.config.systemPrompt,
-            this.config.promptPrefix,
+            this.config.systemPrompt || this.getDefaultSystemPrompt(),
+            this.config.promptPrefix || this.getDefaultPromptPrefix(),
             {
                 llmType: this.config.llmType,
                 llmModel: this.config.llmModel,
@@ -66,10 +95,12 @@ export class LlmIntegrationManager {
             }
         );
 
-        if (!this.generator) {
+        if (!generator) {
             console.error("Fehler beim Erstellen des LLM-Generators");
             showNotification("LLM-Integration konnte nicht initialisiert werden", "danger");
         }
+
+        return generator;
     }
 
     /**
@@ -78,7 +109,19 @@ export class LlmIntegrationManager {
      * @returns {Promise<Object>} - Verarbeitungsergebnis mit Antwort und Datenänderungen
      */
     async processUserInput(userInput, callback) {
-        if (!userInput || !this.generator || this.isProcessing) {
+        if (!this.isConfigurated()) {
+            return { success: false, message: "Fehlende Konfigurationen für die Anbindung an ChatBot-Provider" };
+        }
+
+        let generator;
+        try {
+            generator = this.createLlmGenerator();
+        } catch (error) {
+            console.error("Fehler beim Erstellen des LLM-Generators:", error);
+            return { success: false, message: "Fehler beim Erstellen des LLM-Generators" };
+        }
+
+        if (!userInput || this.isProcessing) {
             return { success: false, message: "Eingabe kann nicht verarbeitet werden" };
         }
 
@@ -94,14 +137,17 @@ export class LlmIntegrationManager {
         try {
             // Aktuelle Daten vorbereiten
             const currentData = this.dataManager.getData();
-            const messageWithContext = this.createContextMessage(currentData, userInput);
 
             // Nachricht an das LLM senden
-            this.generator.attachMessageAsUser(messageWithContext);
+            generator.attachMessageAsUserUsingPrefix({
+                userInput: userInput,
+                currentData: this.getCurrentDataAsPromptBlock(currentData),
+                example: this.getExampleDataAsPromptBlock(),
+            });
 
             // Stream-Antwort verarbeiten
             const response = await handleSse(
-                this.generator,
+                generator,
                 (error, token) => {
                     if (error) {
                         console.error("Stream-Fehler:", error);
@@ -120,6 +166,7 @@ export class LlmIntegrationManager {
 
             // Vollständige Antwort speichern
             result.originalResponse = response;
+            generator.attachMessageAsAssistant(response);
 
             // Antwort parsen und YAML extrahieren
             const yamlContent = this.extractYamlFromResponse(response);
@@ -155,7 +202,6 @@ export class LlmIntegrationManager {
             }
 
             return result;
-
         } catch (error) {
             console.error("Fehler bei der LLM-Verarbeitung:", error);
             result.message = "Es ist ein Fehler bei der Verarbeitung aufgetreten";
@@ -166,15 +212,12 @@ export class LlmIntegrationManager {
     }
 
     /**
-     * Erstellt eine kontextualisierte Nachricht mit den aktuellen Daten
+     * Erstellt einen YAML-Markdown-Block für die aktuelle Infrastruktur
      * @param {Object} currentData - Aktuelle Infrastrukturdaten
-     * @param {string} userInput - Die Benutzereingabe
      * @returns {string} - Die formatierte Nachricht mit Kontext
      */
-    createContextMessage(currentData, userInput) {
+    getCurrentDataAsPromptBlock(currentData) {
         return `
-Hier ist die aktuelle YAML-Darstellung der Infrastruktur:
-
 \`\`\`yaml
 systems:
 ${currentData.systems.map(sys => `  - id: ${sys.id}
@@ -189,16 +232,52 @@ dependencies:
 ${currentData.dependencies.map(dep => `  - source: ${dep.source}
     target: ${dep.target}
     type: ${dep.type}
-    description: ${dep.description || 'Keine Beschreibung'}
-    protocol: ${dep.protocol || 'Unbekannt'}
+    description: ${dep.description || 'No Description'}
+    protocol: ${dep.protocol || 'API'}
 `).join('\n')}
 \`\`\`
+`;
+    }
 
-Benutzeranfrage:
-${userInput}
+    /**
+     * Erstellt einen YAML-Markdown-Block als Beispiel für den Prompt
+     * @returns {string} - Die formatierte Nachricht mit Kontext
+     */
+    getDataStructureAsPromptBlock() {
+        return `
+\`\`\`yaml
+systems:
+  - id: systemId
+    name: System Name
+    description: Beschreibung
+    category: kategorie
+    groups:
+      - gruppe1
+      - gruppe2
+    status: status
+    knownUsage: true/false
+    delete: true/false
+    tags:
+      - tag1
+      - tag2
 
-Wenn du Änderungen an der Infrastruktur vornehmen sollst, gib die neuen, aktualisierten oder zu löschenden Elemente in YAML im folgenden Format zurück:
+dependencies:
+  - source: quellSystemId
+    target: zielSystemId
+    type: verbindungstyp
+    description: Beschreibung der Verbindung
+    delete: true/false
+    protocol: Verwendetes Protokoll
+\`\`\`
+`;
+    }
 
+    /**
+     * Erstellt einen YAML-Markdown-Block als Beispiel für den Prompt
+     * @returns {string} - Die formatierte Nachricht mit Kontext
+     */
+    getExampleDataAsPromptBlock() {
+        return `
 \`\`\`yaml
 systems:
   - id: system1
@@ -221,8 +300,6 @@ dependencies:
     delete: true/false
     protocol: Protokoll
 \`\`\`
-
-Wenn keine Änderungen erforderlich sind, antworte mit normaler Konversation. Gib YAML nur zurück, wenn Infrastrukturänderungen angefordert wurden.
 `;
     }
 
@@ -497,32 +574,32 @@ Füge keine Erklärungen innerhalb des YAML-Blocks hinzu.
 
 Halte dich an dieses Format:
 
-\`\`\`yaml
-systems:
-  - id: systemId
-    name: System Name
-    description: Beschreibung
-    category: kategorie
-    groups:
-      - gruppe1
-      - gruppe2
-    status: status
-    knownUsage: true/false
-    delete: true/false
-    tags:
-      - tag1
-      - tag2
-
-dependencies:
-  - source: quellSystemId
-    target: zielSystemId
-    type: verbindungstyp
-    description: Beschreibung der Verbindung
-    delete: true/false
-    protocol: Verwendetes Protokoll
-\`\`\`
+{{dataStructure}}
 
 Wenn du nach allgemeinen Informationen über die Infrastrukturvisualisierung gefragt wirst, 
 antworte mit hilfreichen Erklärungen, ohne YAML zurückzugeben.`;
+    }
+
+    /**
+     * Erstellt den Standard-Prompt-Header
+     * 
+     * @returns {string} - Die formatierte Nachricht mit Kontext
+     */
+    getDefaultPromptPrefix() {
+        return `
+Hier ist die aktuelle YAML-Darstellung der Infrastruktur:
+
+{{currentData}}
+
+Benutzeranfrage:
+
+{{userInput}}
+
+Wenn du Änderungen an der Infrastruktur vornehmen sollst, gib die neuen, aktualisierten oder zu löschenden Elemente in YAML im folgenden Format zurück:
+
+{{example}}
+
+Wenn keine Änderungen erforderlich sind, antworte mit normaler Konversation. Gib YAML nur zurück, wenn Infrastrukturänderungen angefordert wurden.
+`;
     }
 }

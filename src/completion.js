@@ -265,16 +265,12 @@ class Generator {
     reset() {
         // Create prompt templates to replace them with information from variables
         const systemPromptTemplate = new PromptTemplate(this.systemPrompt);
-        const codePromptTemplate = new PromptTemplate(this.promptPrefix);
 
         // Set current system prompt
         this.api.setSystemPrompt(systemPromptTemplate.formatWithNamedParams(this.variables));
 
         // Reset message history, some providers might require to add this to the message list
         this.api.reset();
-
-        // Attach initial prompt
-        this.api.attachMessageAsUser(codePromptTemplate.formatWithNamedParams(this.variables));
     }
 
     attachMessageAsAssistant(text) {
@@ -283,6 +279,11 @@ class Generator {
 
     attachMessageAsUser(text) {
         this.api.attachMessageAsUser(text);
+    }
+
+    attachMessageAsUserUsingPrefix(variables) {
+        const codePromptTemplate = new PromptTemplate(this.promptPrefix);
+        this.api.attachMessageAsUser(codePromptTemplate.formatWithNamedParams(variables));
     }
 
     async generate() {

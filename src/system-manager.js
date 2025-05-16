@@ -1,7 +1,8 @@
-/**
- * System Manager - Verwaltet das Hinzufügen, Bearbeiten und Löschen von Systemen
- */
+import { showNotification } from './utilities.js';
 
+/**
+ * System Manager - Manages adding, editing, and deleting systems
+ */
 export class SystemManager {
     constructor() {
         this.initialized = false;
@@ -9,37 +10,37 @@ export class SystemManager {
     }
 
     /**
-     * Initialisiert den SystemManager
+     * Initializes the SystemManager
      */
     initialize(dataManager) {
         this.dataManager = dataManager;
 
         if (this.initialized) return;
 
-        // Auf Datenänderungen reagieren
-        this.dataManager.addEventListener('dataChanged', () => {
-            // Optional: Aktualisierung der UI bei Datenänderungen
+        // React to data changes
+        this.dataManager.on('dataChanged', () => {
+            // Optional: Update the UI on data changes
         });
 
         this.initialized = true;
-        console.log('SystemManager wurde initialisiert');
+        console.log('SystemManager has been initialized');
     }
 
     /**
-     * Zeigt das System-Modal für Hinzufügen oder Bearbeiten an
-     * @param {string} systemId - Die ID des zu bearbeitenden Systems (null für Hinzufügen)
+     * Shows the system modal for adding or editing
+     * @param {string} systemId - The ID of the system to edit (null for adding)
      */
     showSystemModal(systemId = null) {
-        // Modal-Titel je nach Aktion (Hinzufügen oder Bearbeiten) setzen
+        // Set modal title depending on action (add or edit)
         document.getElementById('system-modal-label').textContent =
-            systemId ? 'System bearbeiten' : 'System hinzufügen';
+            systemId ? 'Edit System' : 'Add System';
 
         const form = document.getElementById('system-form');
 
-        // Formular zurücksetzen
+        // Reset form
         form.reset();
 
-        // Gruppen-Container leeren
+        // Clear groups container
         const groupsContainer = document.getElementById('system-groups-container');
         if (groupsContainer) {
             groupsContainer.innerHTML = '';
@@ -50,13 +51,13 @@ export class SystemManager {
             groupsValueField.value = '';
         }
 
-        // Wenn systemId vorhanden, Formulardaten mit Systemdaten füllen
+        // If systemId exists, fill form data with system data
         if (systemId) {
             const system = this.dataManager.getData().systems.find(sys => sys.id === systemId);
             if (system) {
                 this.currentEditingSystem = system;
 
-                // Formular mit Systemdaten füllen
+                // Fill form with system data
                 document.getElementById('system-id').value = system.id;
                 document.getElementById('system-name').value = system.name;
                 document.getElementById('system-description').value = system.description;
@@ -64,7 +65,7 @@ export class SystemManager {
                 document.getElementById('system-status').value = system.status;
                 document.getElementById('system-known-usage').checked = system.knownUsage;
 
-                // Gruppen als Badges hinzufügen
+                // Add groups as badges
                 const groups = [];
                 if (Array.isArray(system.groups)) {
                     system.groups.forEach(group => this.addGroupBadge(group));
@@ -74,12 +75,12 @@ export class SystemManager {
                     groups.push(system.group);
                 }
 
-                // Gruppen in Hidden-Feld speichern
+                // Store groups in hidden field
                 if (groupsValueField) {
                     groupsValueField.value = groups.join(',');
                 }
 
-                // Tags als kommaseparierte Liste darstellen
+                // Display tags as comma-separated list
                 if (system.tags && Array.isArray(system.tags)) {
                     document.getElementById('system-tags').value = system.tags.join(', ');
                 } else {
@@ -87,21 +88,21 @@ export class SystemManager {
                 }
             }
         } else {
-            // Neues System, ID-Feld leeren
+            // New system, clear ID field
             document.getElementById('system-id').value = '';
             this.currentEditingSystem = null;
         }
 
-        // Gruppenliste füllen (für Datalist)
+        // Fill group list (for datalist)
         const groupList = document.getElementById('group-list');
         if (groupList) {
             groupList.innerHTML = '';
 
-            // Bestehende Gruppen sammeln
+            // Collect existing groups
             const groups = this.dataManager.getAllGroups ?
                 this.dataManager.getAllGroups() : this.getExistingGroups();
 
-            // Gruppenliste befüllen
+            // Fill group list
             groups.forEach(group => {
                 const option = document.createElement('option');
                 option.value = group;
@@ -109,16 +110,16 @@ export class SystemManager {
             });
         }
 
-        // Modal anzeigen
+        // Show modal
         const modal = new bootstrap.Modal(document.getElementById('system-modal'));
         modal.show();
     }
 
     /**
-     * Speichert ein neues oder bearbeitetes System
+     * Saves a new or edited system
      */
     saveSystem() {
-        // Formulardaten sammeln
+        // Collect form data
         const systemId = document.getElementById('system-id').value;
         const name = document.getElementById('system-name').value;
         const description = document.getElementById('system-description').value;
@@ -126,21 +127,21 @@ export class SystemManager {
         const status = document.getElementById('system-status').value;
         const knownUsage = document.getElementById('system-known-usage').checked;
 
-        // Gruppen-Array erstellen - Unterstützung für altes und neues UI-Format
+        // Create groups array - support for old and new UI format
         let groups = [];
 
-        // Neue UI (mit system-groups-value als Hidden-Field)
+        // New UI (with system-groups-value as hidden field)
         const groupsValueField = document.getElementById('system-groups-value');
         if (groupsValueField) {
             groups = groupsValueField.value
                 ? groupsValueField.value.split(',').map(g => g.trim()).filter(g => g !== '')
                 : [];
         }
-        // Alte UI (mit system-group als direktem Input)
+        // Old UI (with system-group as direct input)
         else {
             const groupField = document.getElementById('system-group');
             if (groupField && groupField.value.trim() !== '') {
-                // Prüfen, ob Kommas enthalten sind (für manuelle Mehrfachgruppeneingabe)
+                // Check for commas (for manual multi-group input)
                 if (groupField.value.includes(',')) {
                     groups = groupField.value.split(',').map(g => g.trim()).filter(g => g !== '');
                 } else {
@@ -149,19 +150,19 @@ export class SystemManager {
             }
         }
 
-        // Tags aus kommaseparierter Liste in Array umwandeln
+        // Convert tags from comma-separated list to array
         const tagsString = document.getElementById('system-tags').value;
         const tags = tagsString
             ? tagsString.split(',').map(tag => tag.trim()).filter(tag => tag)
             : [];
 
-        // Formularvalidierung
+        // Form validation
         if (!name || !description || !category || !status) {
-            showNotification('Bitte füllen Sie alle Pflichtfelder aus', 'warning');
+            showNotification('Please fill in all required fields', 'warning');
             return;
         }
 
-        // Neues System-Objekt erstellen
+        // Create new system object
         const updatedSystem = {
             id: systemId || this.dataManager.generateUniqueId(),
             name,
@@ -170,32 +171,32 @@ export class SystemManager {
             status,
             knownUsage,
             tags,
-            groups // Neue Multi-Gruppen-Array
+            groups // New multi-group array
         };
 
-        // Für Abwärtskompatibilität auch das einzelne group-Feld setzen
+        // For backward compatibility also set the single group field
         if (groups.length > 0) {
             updatedSystem.group = groups[0];
         }
 
-        // Hinzufügen oder Aktualisieren des Systems
+        // Add or update the system
         if (!systemId) {
-            // Neues System hinzufügen
+            // Add new system
             this.dataManager.addSystem(updatedSystem);
-            showNotification(`System "${name}" wurde hinzugefügt`, 'success');
+            showNotification(`System "${name}" has been added`, 'success');
         } else {
-            // Bestehendes System aktualisieren
+            // Update existing system
             this.dataManager.updateSystem(updatedSystem);
-            showNotification(`System "${name}" wurde aktualisiert`, 'success');
+            showNotification(`System "${name}" has been updated`, 'success');
         }
 
-        // Modal schließen
+        // Close modal
         bootstrap.Modal.getInstance(document.getElementById('system-modal')).hide();
     }
 
     /**
-     * Fügt eine Gruppe als Badge zum Container hinzu
-     * @param {string} groupName - Name der Gruppe
+     * Adds a group as a badge to the container
+     * @param {string} groupName - Name of the group
      */
     addGroupBadge(groupName) {
         if (!groupName || groupName.trim() === '') return;
@@ -204,28 +205,28 @@ export class SystemManager {
         const hiddenField = document.getElementById('system-groups-value');
 
         if (!container || !hiddenField) {
-            console.warn('Gruppen-UI-Elemente nicht gefunden. Multi-Gruppen-UI möglicherweise nicht initialisiert.');
+            console.warn('Group UI elements not found. Multi-group UI may not be initialized.');
             return;
         }
 
-        // Prüfen, ob die Gruppe bereits hinzugefügt wurde
+        // Check if the group has already been added
         const currentGroups = hiddenField.value ? hiddenField.value.split(',') : [];
         if (currentGroups.includes(groupName)) return;
 
-        // Badge erstellen
+        // Create badge
         const badge = document.createElement('span');
         badge.className = 'badge bg-primary d-flex align-items-center';
         badge.innerHTML = `
         ${groupName}
         <button type="button" class="btn-close btn-close-white ms-2" 
-                aria-label="Entfernen" style="font-size: 0.5rem;"></button>
+                aria-label="Remove" style="font-size: 0.5rem;"></button>
     `;
 
-        // Löschen-Button
+        // Delete button
         badge.querySelector('.btn-close').addEventListener('click', () => {
             container.removeChild(badge);
 
-            // Wert aus dem Hidden-Field entfernen
+            // Remove value from hidden field
             const groups = hiddenField.value.split(',');
             const index = groups.indexOf(groupName);
             if (index !== -1) {
@@ -234,18 +235,18 @@ export class SystemManager {
             }
         });
 
-        // Zum Container hinzufügen
+        // Add to container
         container.appendChild(badge);
 
-        // Zum Hidden-Field hinzufügen
+        // Add to hidden field
         const newGroups = [...currentGroups, groupName];
         hiddenField.value = newGroups.join(',');
     }
 
     /**
-     * Hilfsfunktion zum Sammeln aller existierenden Gruppen
-     * (Wird nur benötigt, falls getAllGroups nicht im DataManager implementiert ist)
-     * @returns {Array} Array mit einzigartigen Gruppennamen
+     * Helper function to collect all existing groups
+     * (Only needed if getAllGroups is not implemented in DataManager)
+     * @returns {Array} Array of unique group names
      */
     getExistingGroups() {
         const groups = new Set();
@@ -266,24 +267,24 @@ export class SystemManager {
     }
 
     /**
-     * Zeigt die Löschbestätigung für ein System an
-     * @param {string} systemId - Die ID des zu löschenden Systems
+     * Shows the delete confirmation for a system
+     * @param {string} systemId - The ID of the system to delete
      */
     showDeleteConfirmation(systemId) {
         const system = this.dataManager.getData().systems.find(sys => sys.id === systemId);
         if (!system) return;
 
-        // Prüfen, ob das System in Abhängigkeiten verwendet wird
+        // Check if the system is used in dependencies
         const data = this.dataManager.getData();
         const incomingDeps = data.dependencies.filter(dep => dep.target === systemId);
         const outgoingDeps = data.dependencies.filter(dep => dep.source === systemId);
 
-        let message = `Möchten Sie das System "${system.name}" wirklich löschen?`;
+        let message = `Do you really want to delete the system "${system.name}"?`;
 
         if (incomingDeps.length > 0 || outgoingDeps.length > 0) {
             message += `<br><br><div class="alert alert-warning">
-                <strong>Achtung:</strong> Dieses System hat ${incomingDeps.length + outgoingDeps.length} 
-                Abhängigkeiten, die ebenfalls gelöscht werden.
+                <strong>Warning:</strong> This system has ${incomingDeps.length + outgoingDeps.length} 
+                dependencies that will also be deleted.
             </div>`;
         }
 
@@ -291,28 +292,28 @@ export class SystemManager {
         document.getElementById('confirm-action').setAttribute('data-action', 'delete-system');
         document.getElementById('confirm-action').setAttribute('data-id', systemId);
 
-        // Modal anzeigen
+        // Show modal
         const modal = new bootstrap.Modal(document.getElementById('confirm-modal'));
         modal.show();
     }
 
     /**
-     * Löscht ein System und seine Abhängigkeiten
-     * @param {string} systemId - Die ID des zu löschenden Systems
+     * Deletes a system and its dependencies
+     * @param {string} systemId - The ID of the system to delete
      */
     deleteSystem(systemId) {
-        // System finden und Namen für die Benachrichtigung speichern
+        // Find system and store name for notification
         const system = this.dataManager.getData().systems.find(sys => sys.id === systemId);
         if (!system) return;
 
         const systemName = system.name;
 
-        // System über den DataManager löschen
+        // Delete system via DataManager
         this.dataManager.deleteSystem(systemId);
 
-        showNotification(`System "${systemName}" und zugehörige Abhängigkeiten wurden gelöscht`, 'success');
+        showNotification(`System "${systemName}" and related dependencies have been deleted`, 'success');
 
-        // Details-Panel schließen
+        // Close details panel
         document.getElementById('details-panel').classList.remove('active');
     }
 }

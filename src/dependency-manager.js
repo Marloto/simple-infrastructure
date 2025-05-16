@@ -1,5 +1,7 @@
+import { showNotification } from './utilities.js';
+
 /**
- * DependencyManager - Verwaltet das Hinzufügen und Löschen von Abhängigkeiten
+ * DependencyManager - Manages adding and removing dependencies
  */
 export class DependencyManager {
     constructor() {
@@ -9,13 +11,13 @@ export class DependencyManager {
         this.tempLink = null;
         this.mousePosition = { x: 0, y: 0 };
         
-        // Standardwerte für neue Verbindungen
+        // Default values for new connections
         this.defaultConnectionType = "data";
         this.defaultConnectionProtocol = "API";
     }
 
     /**
-     * Initialisiert den DependencyManager
+     * Initializes the DependencyManager
      */
     initialize(dataManager, visualizer) {
         if (this.initialized) return;
@@ -23,15 +25,15 @@ export class DependencyManager {
         this.dataManager = dataManager;
         this.visualizer = visualizer;
         
-        // Event-Listener für Verbindungsmodus-Toggle
+        // Event listener for connection mode toggle
         document.getElementById('toggle-connection-mode').addEventListener('click', () => {
             this.toggleConnectionMode();
         });
         
-        // Event-Listener für Datenänderungen, um den Verbindungsmodus beizubehalten
-        this.dataManager.addEventListener('dataChanged', () => {
+        // Event listener for data changes to keep connection mode active
+        this.dataManager.on('dataChanged', () => {
             if (this.isConnectionModeActive) {
-                // Kurze Verzögerung, um die UI-Aktualisierung abzuwarten
+                // Short delay to wait for UI update
                 setTimeout(() => {
                     this.setupConnectionDrag();
                 }, 100);
@@ -39,11 +41,11 @@ export class DependencyManager {
         });
         
         this.initialized = true;
-        console.log('DependencyManager wurde initialisiert');
+        console.log('DependencyManager has been initialized');
     }
 
     /**
-     * Schaltet den Verbindungsmodus ein/aus
+     * Toggles the connection mode on/off
      */
     toggleConnectionMode() {
         this.isConnectionModeActive = !this.isConnectionModeActive;
@@ -52,93 +54,93 @@ export class DependencyManager {
         if (this.isConnectionModeActive) {
             document.body.classList.add('connection-mode');
             toggleButton.classList.add('active');
-            toggleButton.title = 'Verbindungsmodus verlassen';
+            toggleButton.title = 'Exit connection mode';
             toggleButton.querySelector('i').className = 'bi bi-link-45deg';
             
-            // Standarddrag deaktivieren und stattdessen Verbindungsdrag aktivieren
-            this.visualizer.disableDrag(); // Flag setzen
+            // Disable default drag and enable connection drag instead
+            this.visualizer.disableDrag(); // Set flag
             this.setupConnectionDrag();
             
-            showNotification('Verbindungsmodus aktiviert: Ziehen Sie von einem System zum anderen', 'info');
+            showNotification('Connection mode enabled: Drag from one system to another', 'info');
         } else {
             document.body.classList.remove('connection-mode');
             toggleButton.classList.remove('active');
-            toggleButton.title = 'Verbindungsmodus';
+            toggleButton.title = 'Connection mode';
             toggleButton.querySelector('i').className = 'bi bi-link';
             
-            // Verbindungsdrag entfernen und Standarddrag wiederherstellen
+            // Remove connection drag and restore default drag
             this.removeConnectionDrag();
-            this.visualizer.enableDrag(); // Flag zurücksetzen
+            this.visualizer.enableDrag(); // Reset flag
             
-            // Aufräumen
+            // Cleanup
             this.resetConnectionState();
             
-            showNotification('Verbindungsmodus deaktiviert', 'info');
+            showNotification('Connection mode disabled', 'info');
         }
     }
 
     /**
-     * Richtet den Drag-Mechanismus für Verbindungen ein
+     * Sets up the drag mechanism for connections
      */
     setupConnectionDrag() {
         if (!this.visualizer.nodeElements) return;
         
-        // Verbindungs-Drag entfernen (falls vorhanden)
+        // Remove connection drag if present
         this.removeConnectionDrag();
         
-        // Drag-Funktion für Verbindungen definieren
+        // Define drag function for connections
         const connectionDrag = d3.drag()
             .on("start", (event, d) => this.handleDragStart(event, d))
             .on("drag", (event, d) => this.handleDragMove(event, d))
             .on("end", (event, d) => this.handleDragEnd(event, d));
         
-        // Auf Knoten anwenden
+        // Apply to nodes
         this.visualizer.nodeElements.call(connectionDrag);
     }
     
     /**
-     * Entfernt den Verbindungs-Drag-Mechanismus
+     * Removes the connection drag mechanism
      */
     removeConnectionDrag() {
         if (!this.visualizer.nodeElements) return;
         
-        // Verbindungs-Drag entfernen
+        // Remove connection drag
         this.visualizer.nodeElements.on('.drag', null);
     }
 
     /**
-     * Behandelt den Start eines Verbindungsdrags
+     * Handles the start of a connection drag
      */
     handleDragStart(event, d) {
         if (!this.isConnectionModeActive) return;
         
-        // Quellsystem festlegen
+        // Set source system
         this.sourceSystem = d;
         
-        // Visuell markieren
+        // Visually mark
         d3.select(event.sourceEvent.target.closest('.node')).classed('connection-source', true);
         
-        // Temporäre Verbindungslinie erstellen
+        // Create temporary connection line
         this.createTempLink(d);
     }
 
     /**
-     * Behandelt die Bewegung während eines Verbindungsdrags
+     * Handles movement during a connection drag
      */
     handleDragMove(event, d) {
         if (!this.isConnectionModeActive || !this.tempLink) return;
         
-        // Temporäre Linie aktualisieren
+        // Update temporary line
         this.tempLink.attr('d', `M${this.sourceSystem.x},${this.sourceSystem.y} L${event.x},${event.y}`);
     }
 
     /**
-     * Behandelt das Ende eines Verbindungsdrags
+     * Handles the end of a connection drag
      */
     handleDragEnd(event, d) {
         if (!this.isConnectionModeActive || !this.sourceSystem) return;
         
-        // Prüfen, ob über einem anderen Knoten losgelassen wurde
+        // Check if released over another node
         const targetElement = document.elementFromPoint(event.sourceEvent.clientX, event.sourceEvent.clientY);
         const targetNode = targetElement ? targetElement.closest('.node') : null;
         
@@ -147,66 +149,66 @@ export class DependencyManager {
             const targetSystem = this.dataManager.getData().systems.find(sys => sys.id === targetSystemId);
             
             if (targetSystem && targetSystem.id !== this.sourceSystem.id) {
-                // Verbindung erstellen mit Standardwerten
+                // Create connection with default values
                 this.createConnection(this.sourceSystem, targetSystem);
             } else if (targetSystem && targetSystem.id === this.sourceSystem.id) {
-                // Gleicher Knoten wurde als Ziel verwendet
-                showNotification('Quell- und Zielsystem können nicht identisch sein.', 'warning');
+                // Same node used as target
+                showNotification('Source and target system cannot be identical.', 'warning');
             }
         }
         
-        // Aufräumen
+        // Cleanup
         this.resetConnectionState();
     }
 
     /**
-     * Erstellt eine temporäre Verbindungslinie vom Quellsystem
+     * Creates a temporary connection line from the source system
      */
     createTempLink(sourceSystem) {
-        // Temporäre Linie erstellen
+        // Create temporary line
         this.tempLink = this.visualizer.svg.select('g').append('path')
             .attr('class', 'temp-link')
             .attr('d', `M${sourceSystem.x},${sourceSystem.y} L${sourceSystem.x},${sourceSystem.y}`);
     }
 
     /**
-     * Erstellt eine neue Verbindung mit Standardwerten
+     * Creates a new connection with default values
      */
     createConnection(sourceSystem, targetSystem) {
-        // Neue Abhängigkeit mit Standardwerten erstellen
+        // Create new dependency with default values
         const newDependency = {
             source: sourceSystem.id,
             target: targetSystem.id,
             type: this.defaultConnectionType,
-            description: `Verbindung von ${sourceSystem.name} zu ${targetSystem.name}`,
+            description: `Connection from ${sourceSystem.name} to ${targetSystem.name}`,
             protocol: this.defaultConnectionProtocol
         };
         
-        // Abhängigkeit über den DataManager hinzufügen
+        // Add dependency via DataManager
         const success = this.dataManager.addDependency(newDependency);
         
         if (success) {
-            // Erfolgsmeldung
+            // Success message
             showNotification(
-                `Verbindung von "${sourceSystem.name}" zu "${targetSystem.name}" wurde erstellt`,
+                `Connection from "${sourceSystem.name}" to "${targetSystem.name}" has been created`,
                 'success'
             );
         } else {
-            showNotification('Fehler beim Erstellen der Verbindung', 'danger');
+            showNotification('Error creating connection', 'danger');
         }
     }
 
     /**
-     * Setzt den Verbindungsstatus zurück
+     * Resets the connection state
      */
     resetConnectionState() {
-        // Quellsystem zurücksetzen
+        // Reset source system
         if (this.sourceSystem) {
             d3.selectAll('.node').classed('connection-source', false);
             this.sourceSystem = null;
         }
         
-        // Temporäre Linie entfernen
+        // Remove temporary line
         if (this.tempLink) {
             this.tempLink.remove();
             this.tempLink = null;
@@ -214,45 +216,45 @@ export class DependencyManager {
     }
 
     /**
-     * Zeigt die Lösch-Kontrolle für eine Verbindung an
+     * Shows the delete control for a connection
      */
     showLinkControls(event, linkData) {
-        // Im Verbindungsmodus keine Controls anzeigen
+        // Do not show controls in connection mode
         if (this.isConnectionModeActive) return;
         
-        // Bestehende Controls entfernen
+        // Remove existing controls
         this.hideLinkControls();
         
-        // Neue Controls erstellen
+        // Create new controls
         const controls = document.createElement('div');
         controls.className = 'link-controls';
         controls.innerHTML = `
-            <button class="link-delete-btn" title="Verbindung löschen">
+            <button class="link-delete-btn" title="Delete connection">
                 <i class="bi bi-trash"></i>
             </button>
         `;
         
-        // Position setzen
+        // Set position
         controls.style.left = `${event.pageX}px`;
         controls.style.top = `${event.pageY}px`;
         
-        // Zum DOM hinzufügen
+        // Add to DOM
         document.body.appendChild(controls);
         
-        // Link-Daten in ein Attribut speichern
+        // Store link data in attribute
         controls.setAttribute('data-source', linkData.source.id || linkData.source);
         controls.setAttribute('data-target', linkData.target.id || linkData.target);
         
-        // Event-Listener für Löschen-Button
+        // Event listener for delete button
         controls.querySelector('.link-delete-btn').addEventListener('click', () => {
             this.showDeleteDependencyConfirmation(linkData);
             this.hideLinkControls();
         });
         
-        // Controls anzeigen
+        // Show controls
         controls.style.display = 'block';
         
-        // Außerhalb klicken, um zu schließen
+        // Click outside to close
         document.addEventListener('click', (e) => {
             if (!controls.contains(e.target) && e.target !== event.target) {
                 this.hideLinkControls();
@@ -261,7 +263,7 @@ export class DependencyManager {
     }
 
     /**
-     * Blendet die Link-Controls aus
+     * Hides the link controls
      */
     hideLinkControls() {
         const existingControls = document.querySelector('.link-controls');
@@ -271,7 +273,7 @@ export class DependencyManager {
     }
 
     /**
-     * Zeigt eine Bestätigungsaufforderung zum Löschen einer Abhängigkeit an
+     * Shows a confirmation prompt to delete a dependency
      */
     showDeleteDependencyConfirmation(linkData) {
         const sourceId = linkData.source.id || linkData.source;
@@ -282,30 +284,30 @@ export class DependencyManager {
         
         if (!sourceSystem || !targetSystem) return;
         
-        // Bestätigungsnachricht
-        const message = `Möchten Sie die Verbindung von "${sourceSystem.name}" zu "${targetSystem.name}" wirklich löschen?`;
+        // Confirmation message
+        const message = `Do you really want to delete the connection from "${sourceSystem.name}" to "${targetSystem.name}"?`;
         
         document.getElementById('confirm-message').innerHTML = message;
         document.getElementById('confirm-action').setAttribute('data-action', 'delete-dependency');
         document.getElementById('confirm-action').setAttribute('data-source', sourceId);
         document.getElementById('confirm-action').setAttribute('data-target', targetId);
         
-        // Modal anzeigen
+        // Show modal
         const modal = new bootstrap.Modal(document.getElementById('confirm-modal'));
         modal.show();
     }
 
     /**
-     * Löscht eine Abhängigkeit
+     * Deletes a dependency
      */
     deleteDependency(sourceId, targetId) {
-        // Systeme finden für die Benachrichtigung
+        // Find systems for notification
         const sourceSystem = this.dataManager.getData().systems.find(sys => sys.id === sourceId);
         const targetSystem = this.dataManager.getData().systems.find(sys => sys.id === targetId);
         
         if (!sourceSystem || !targetSystem) return;
         
-        // Abhängigkeit über den DataManager löschen
+        // Delete dependency via DataManager
         const success = this.dataManager.deleteDependency({
             source: sourceId,
             target: targetId
@@ -313,11 +315,11 @@ export class DependencyManager {
         
         if (success) {
             showNotification(
-                `Verbindung von "${sourceSystem.name}" zu "${targetSystem.name}" wurde gelöscht`,
+                `Connection from "${sourceSystem.name}" to "${targetSystem.name}" has been deleted`,
                 'success'
             );
         } else {
-            showNotification('Fehler beim Löschen der Verbindung', 'danger');
+            showNotification('Error deleting connection', 'danger');
         }
     }
 }

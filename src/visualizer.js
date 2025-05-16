@@ -1,18 +1,15 @@
 import { SimulationManager } from './simulation.js';
 import { NodeCache } from './node-cache.js';
+import { EventEmitter } from './event-emitter.js';
 
 /**
  * SystemVisualizer - Visualisiert IT-Systeme und deren Abhängigkeiten als interaktiven Graphen
  */
-export class SystemVisualizer {
+export class SystemVisualizer extends EventEmitter {
     constructor(containerId, dataManager) {
+        super();
         this.containerId = containerId;
         this.dataManager = dataManager;
-
-        this.eventListeners = {
-            'dependency-click': [],
-            'toggle-fixed': [],
-        };
 
         // Getter für Zugriff auf aktuelle Daten
         Object.defineProperty(this, 'data', {
@@ -69,7 +66,7 @@ export class SystemVisualizer {
         this.attachEventListeners();
 
         // Auf Datenänderungen reagieren
-        this.dataManager.addEventListener('dataChanged', () => {
+        this.dataManager.on('dataChanged', () => {
             // Visualisierung neu erstellen
             const container = document.getElementById(this.containerId);
             if (container) {
@@ -80,7 +77,7 @@ export class SystemVisualizer {
         });
 
         // Details-Panel-Aktualisierung bei Datenänderungen
-        this.dataManager.addEventListener('dataChanged', () => {
+        this.dataManager.on('dataChanged', () => {
             const detailsPanel = document.getElementById('details-panel');
             if (detailsPanel && detailsPanel.classList.contains('active')) {
                 const systemId = document.getElementById('detail-title').getAttribute('data-system-id');
@@ -157,7 +154,7 @@ export class SystemVisualizer {
             groupForceStrength: 0.5,
             onTick: () => this.onSimulationTick(),
             onToggleFixed:(id, state) => {
-                this.notifyListeners('toggle-fixed', { id, state });
+                this.emit('toggleFixed', { id, state });
             },
         });
 
@@ -246,7 +243,7 @@ export class SystemVisualizer {
                     .style("opacity", 0);
             })
             .on("click", (event, data) => {
-                this.notifyListeners('dependency-click', { event, data });
+                this.emit('dependencyClick', { event, data });
                 event.stopPropagation();
             });;
 
@@ -1170,26 +1167,5 @@ export class SystemVisualizer {
             this.nodeElements.call(this.simulationManager.createDragBehavior());
         }
         this.dragDisabled = false;
-    }
-
-    /**
-     * Fügt einen Event-Listener hinzu
-     * @param {string} event - Der Event-Name (z.B. 'dataChanged')
-     * @param {Function} callback - Die Callback-Funktion
-     */
-    addEventListener(event, callback) {
-        if (this.eventListeners[event]) {
-            this.eventListeners[event].push(callback);
-        }
-    }
-
-    /**
-     * Benachrichtigt alle Listener über ein Event
-     * @param {string} event - Der Event-Name
-     */
-    notifyListeners(event, data) {
-        if (this.eventListeners[event]) {
-            this.eventListeners[event].forEach(callback => callback(data));
-        }
     }
 }

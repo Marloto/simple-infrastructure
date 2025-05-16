@@ -1,8 +1,11 @@
+import { EventEmitter } from "./event-emitter.js";
+
 /**
  * SimulationManager - Handles d3 force simulation logic separate from visualization
  */
-export class SimulationManager {
+export class SimulationManager extends EventEmitter {
     constructor(options = {}) {
+        super();
         this.options = {
             linkDistance: options.linkDistance || 150,
             chargeStrength: options.chargeStrength || -300,
@@ -27,49 +30,64 @@ export class SimulationManager {
     }
 
     /**
-     * Gibt den Knoten mit der angegebenen ID aus der aktuellen Simulation zurück
-     * @param {string} systemId - Die ID des zu findenden Systems
-     * @returns {Object|null} Das Knotenobjekt oder null, wenn nicht gefunden
+     * Returns the node with the given ID from the current simulation
+     * @param {string} systemId - The ID of the system to find
+     * @returns {Object|null} The node object or null if not found
      */
     getNodeById(systemId) {
         return this.simulation.nodes().find(node => node.id === systemId);
     }
 
     /**
-     * Prüft, ob ein Knoten fixiert ist
-     * @param {string} systemId - Die ID des zu prüfenden Systems
-     * @returns {boolean} True, wenn der Knoten fixiert ist, false sonst oder wenn nicht gefunden
+     * Checks if a node is fixed
+     * @param {string} systemId - The ID of the system to check
+     * @returns {boolean} True if the node is fixed, false otherwise or if not found
      */
     isNodeFixed(systemId, curNode = undefined) {
         const node = curNode || this.getNodeById(systemId);
         return node ? !!node.isFixed : false;
     }
 
-    toggleNodeFixed(systemId) {
-        const node = this.getNodeById(systemId);
+    /**
+     * Toggles the fixed state of a node identified by systemId.
+     *
+     * @param {string|number} systemId - The unique identifier of the node to toggle.
+     * @param {Object} [curNode=undefined] - The current node object (optional). If not provided, the node will be retrieved by systemId.
+     * @returns {null|undefined} Returns null if the node is not found; otherwise, returns undefined.
+     */
+    toggleNodeFixed(systemId, curNode = undefined) {
+        const node = curNode && this.getNodeById(systemId);
         if (!node) return null;
         const isFixed = this.isNodeFixed(systemId, node);
         const newState = !isFixed;
         this.setNodeFixed(systemId, newState, node);
     }
 
+    /**
+     * Sets or removes the fixed position of a node in the simulation.
+     *
+     * @param {string|number} systemId - The unique identifier of the node to fix or unfix.
+     * @param {boolean} state - If true, fixes the node at its current position; if false, releases the node.
+     * @param {Object} [curNode=undefined] - (Optional) The node object to operate on. If not provided, the node is retrieved by systemId.
+     * @returns {boolean|null} Returns the node's fixed state after the operation, or null if the node was not found.
+     */
     setNodeFixed(systemId, state, curNode = undefined) {
         const node = curNode || this.getNodeById(systemId);
         if (!node) return null;
 
         if (!state) {
-            // Fixierung aufheben
+            // Remove fixation
             node.isFixed = false;
             node.fx = null;
             node.fy = null;
         } else {
-            // Knoten an aktueller Position fixieren
+            // Fix node at current position
             node.isFixed = true;
             node.fx = node.x;
             node.fy = node.y;
         }
 
-        // Aktualisiere Cache
+        // Update cache
         if (this.nodeCache && node.id) {
             this.nodeCache.set(node.id, {
                 x: node.x,
@@ -80,10 +98,10 @@ export class SimulationManager {
             });
         }
 
-        // Simulation leicht neu starten
+        // Slightly restart simulation
         this.restart(0.1);
 
-        this.onToggleFixed(systemId, state);
+        this.onToggleFixed && this.onToggleFixed(systemId, state);
 
         return node.isFixed;
     }
@@ -144,6 +162,18 @@ export class SimulationManager {
         return this.simulation;
     }
 
+    /**
+     * Retrieves the groups associated with a node.
+     *
+     * If the node has a non-empty `groups` array, it returns that array.
+     * If the node has a `group` property as a string, it returns an array containing that string.
+     * Otherwise, it returns an empty array.
+     *
+     * @param {Object} node - The node object to extract groups from.
+     * @param {Array<string>} [node.groups] - An optional array of group names.
+     * @param {string} [node.group] - An optional single group name.
+     * @returns {Array<string>} An array of group names associated with the node.
+     */
     getNodeGroups(node) {
         if (Array.isArray(node.groups) && node.groups.length > 0) {
             return node.groups;
@@ -183,7 +213,14 @@ export class SimulationManager {
     }
 
     /**
-     * Apply cached positions to nodes
+     * Applies cached positions and velocities to a list of nodes.
+     * 
+     * For each node with a matching entry in the node cache, updates its position (`x`, `y`),
+     * velocity (`vx`, `vy`), and temporarily fixes its position (`fx`, `fy`) for visual stability.
+     * If the node is not marked as fixed, releases the fixed position after a short delay.
+     * 
+     * @param {Array<Object>} nodes - Array of node objects to update. Each node should have an `id` property.
+     * @returns {number} The number of nodes that had their positions updated from the cache.
      */
     applyNodePositionsFromCache(nodes) {
         if (!nodes || !this.nodeCache) return 0;
@@ -223,7 +260,15 @@ export class SimulationManager {
     }
 
     /**
-     * Calculate starting positions for nodes without cache positions
+     * Assigns initial positions and velocities to nodes that lack position data.
+     * 
+     * For each node without a position, this method:
+     * - Attempts to find reference nodes in the same group(s) (if any), or falls back to all positioned nodes.
+     * - Calculates a target position near the center of the reference nodes, with a random offset.
+     * - Places the node at a random angle and distance from the target position.
+     * - Sets an initial velocity pointing gently toward the target position.
+     * 
+     * @param {Array<Object>} nodes - Array of node objects. Each node may have `x`, `y`, `vx`, `vy` properties and group information.
      */
     applyInitialPositions(nodes) {
         // Find nodes without position
@@ -245,7 +290,7 @@ export class SimulationManager {
             const nodeGroups = this.getNodeGroups(node);
 
             if (nodeGroups.length > 0) {
-                // Sammeln aller Referenzknoten für alle Gruppen des Knotens
+                // Collect all reference nodes for all groups of the node
                 nodeGroups.forEach(group => {
                     const groupNodes = positionedNodes.filter(n => {
                         const nGroups = this.getNodeGroups(n);
@@ -255,7 +300,7 @@ export class SimulationManager {
                     referenceNodes = [...referenceNodes, ...groupNodes];
                 });
 
-                // Duplikate entfernen
+                // Remove duplicates
                 referenceNodes = Array.from(new Set(referenceNodes));
             }
 
@@ -392,11 +437,6 @@ export class SimulationManager {
                 isFixed: d.isFixed || false
             });
         }
-
-        // Keep position fixed where user dropped it
-        // Or release: 
-        //d.fx = null;
-        //d.fy = null;
     }
 }
 
@@ -405,14 +445,14 @@ d3.forceClusterMultiGroup = function () {
     let centers = {};
     let nodes = [];
 
-    // Gewichtung für jede Gruppe (1/Anzahl der Gruppen eines Knotens)
-    // Damit Knoten mit weniger Gruppen stärker zu ihren Gruppen hingezogen werden
+    // Weight for each group (1/number of groups of a node)
+    // So that nodes with fewer groups are more strongly attracted to their groups
     function getGroupWeight(node) {
         const nodeGroups = getNodeGroups(node);
         return nodeGroups.length > 0 ? 1 / nodeGroups.length : 0;
     }
 
-    // Hilfsfunktion zum Extrahieren aller Gruppen eines Knotens
+    // Helper function to extract all groups of a node
     function getNodeGroups(node) {
         if (Array.isArray(node.groups) && node.groups.length > 0) {
             return node.groups;
@@ -423,34 +463,34 @@ d3.forceClusterMultiGroup = function () {
     }
 
     function force(alpha) {
-        // Für jeden Knoten
+        // For each node
         nodes.forEach(d => {
             const nodeGroups = getNodeGroups(d);
-            if (nodeGroups.length === 0) return; // Überspringen, wenn keine Gruppe
+            if (nodeGroups.length === 0) return; // Skip if no group
 
-            // Vektor für die gesamte Kraft auf den Knoten
+            // Vector for the total force on the node
             let totalForceX = 0;
             let totalForceY = 0;
             let totalWeight = 0;
 
-            // Kraft von jeder Gruppe berechnen
+            // Calculate force from each group
             nodeGroups.forEach(groupName => {
                 const groupCenter = centers[groupName];
                 if (!groupCenter) return;
 
-                // Gewichtung für diese Gruppe
+                // Weight for this group
                 const weight = getGroupWeight(d);
                 totalWeight += weight;
 
-                // Je nach Anzahl der Gruppen, in denen der Knoten ist, die Kraft anpassen
+                // Adjust force depending on the number of groups the node is in
                 const k = strength * alpha * weight;
 
-                // Kraft in Richtung des Gruppenzentrums
+                // Force towards the group center
                 totalForceX += (groupCenter.x - d.x) * k;
                 totalForceY += (groupCenter.y - d.y) * k;
             });
 
-            // Gesamtkraft auf den Knoten anwenden
+            // Apply total force to the node
             if (totalWeight > 0) {
                 d.vx += totalForceX;
                 d.vy += totalForceY;

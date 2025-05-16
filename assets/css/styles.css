@@ -367,7 +367,7 @@ body.connection-mode .node:hover circle:not(.connection-source) {
   box-shadow: 0 4px 20px rgba(0,0,0,0.15);
   display: flex;
   flex-direction: column;
-  z-index: 1000;
+  z-index: 200;
   overflow: hidden;
   display: none; /* Initial ausgeblendet */
 }
@@ -458,7 +458,7 @@ body.connection-mode .node:hover circle:not(.connection-source) {
 
 .llm-chat-loading {
   position: absolute;
-  bottom: 70px;
+  bottom: 0px;
   left: 0;
   right: 0;
   background-color: rgba(255,255,255,0.9);
@@ -466,7 +466,7 @@ body.connection-mode .node:hover circle:not(.connection-source) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 15px;
+  padding: 12px;
   display: none;
 }
 
@@ -504,4 +504,14 @@ body.connection-mode .node:hover circle:not(.connection-source) {
     left: 5%;
     width: 90%;
   }
+}
+
+.llm-chat-container.active {
+    height: unset;
+}
+.llm-chat-container.active .llm-chat-header {
+    display: none;
+}
+.llm-chat-container.active .llm-chat-messages {
+    display: none;
 }

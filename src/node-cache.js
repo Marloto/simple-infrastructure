@@ -1,6 +1,6 @@
 /**
- * NodeCache - Verwaltet die Persistenz von Knotenpositionen im Diagramm
- * Speichert kontinuierlich die Positionen und kann diese aus verschiedenen Quellen laden
+ * NodeCache - Manages the persistence of node positions in the diagram
+ * Continuously stores positions and can load them from various sources
  */
 export class NodeCache {
     constructor(options = {}) {
@@ -8,34 +8,34 @@ export class NodeCache {
         this.options = {
             useLocalStorage: options.useLocalStorage || false,
             localStorageKey: options.localStorageKey || 'system_visualizer_node_positions',
-            debounceTime: options.debounceTime || 500, // ms zwischen lokalem Speichern
+            debounceTime: options.debounceTime || 500, // ms between local saves
             persistGroups: options.persistGroups || true
         };
 
-        // Debounce-Timer für LocalStorage-Updates
+        // Debounce timer for LocalStorage updates
         this.saveTimer = null;
 
-        // Beim Initialisieren aus dem LocalStorage laden
+        // Load from LocalStorage on initialization
         if (this.options.useLocalStorage) {
             this.loadFromLocalStorage();
         }
     }
 
     /**
-     * Speichert die Position eines Knotens
-     * @param {string} id - Die ID des Knotens
-     * @param {Object} position - Die Position {x, y, vx, vy} und optional weitere Eigenschaften
+     * Stores the position of a node
+     * @param {string} id - The ID of the node
+     * @param {Object} position - The position {x, y, vx, vy} and optionally other properties
      */
     set(id, position) {
         if (!id) return;
 
-        // Aktuelle Position setzen
+        // Set current position
         this.positions.set(id, {
             x: position.x,
             y: position.y,
             vx: position.vx || 0,
             vy: position.vy || 0,
-            // Optional weitere Metadaten
+            // Optionally more metadata
             lastUpdated: Date.now(),
             isFixed: position.isFixed || false,
         });
@@ -44,8 +44,8 @@ export class NodeCache {
     }
 
     /**
-     * Aktualisiert mehrere Knoten auf einmal
-     * @param {Array} nodes - Array von Knoten mit id und Positionsdaten
+     * Updates multiple nodes at once
+     * @param {Array} nodes - Array of nodes with id and position data
      */
     updateBatch(nodes) {
         if (!Array.isArray(nodes)) return;
@@ -71,26 +71,26 @@ export class NodeCache {
     }
 
     /**
-     * Holt die gespeicherte Position eines Knotens
-     * @param {string} id - Die ID des Knotens
-     * @returns {Object|null} Die gespeicherte Position oder null
+     * Retrieves the stored position of a node
+     * @param {string} id - The ID of the node
+     * @returns {Object|null} The stored position or null
      */
     get(id) {
         return this.positions.get(id) || null;
     }
 
     /**
-     * Prüft, ob eine Position für einen Knoten existiert
-     * @param {string} id - Die ID des Knotens
-     * @returns {boolean} True, wenn Position existiert
+     * Checks if a position exists for a node
+     * @param {string} id - The ID of the node
+     * @returns {boolean} True if position exists
      */
     has(id) {
         return this.positions.has(id);
     }
 
     /**
-     * Entfernt einen Eintrag aus dem Cache
-     * @param {string} id - Die ID des Knotens
+     * Removes an entry from the cache
+     * @param {string} id - The ID of the node
      */
     remove(id) {
         this.positions.delete(id);
@@ -107,25 +107,25 @@ export class NodeCache {
     }
 
     /**
-     * In den LocalStorage speichern
+     * Save to LocalStorage
      */
     doSaveToLocalStorage() {
         if (!this.options.useLocalStorage) return;
 
         try {
-            // Umwandeln der Map in ein Array von [id, data] Paaren
+            // Convert the Map to an array of [id, data] pairs
             const positionsArray = Array.from(this.positions);
             localStorage.setItem(
                 this.options.localStorageKey,
                 JSON.stringify(positionsArray)
             );
         } catch (error) {
-            console.warn('Fehler beim Speichern der Positionen:', error);
+            console.warn('Error saving positions:', error);
         }
     }
 
     /**
-     * Aus dem LocalStorage laden
+     * Load from LocalStorage
      */
     loadFromLocalStorage() {
         if (!this.options.useLocalStorage) return;
@@ -133,18 +133,18 @@ export class NodeCache {
         try {
             const stored = localStorage.getItem(this.options.localStorageKey);
             if (stored) {
-                // Array von [id, data] Paaren zurück in Map umwandeln
+                // Convert array of [id, data] pairs back to Map
                 const positionsArray = JSON.parse(stored);
                 this.positions = new Map(positionsArray);
             }
         } catch (error) {
-            console.warn('Fehler beim Laden der Positionen:', error);
+            console.warn('Error loading positions:', error);
         }
     }
 
     /**
-     * Cache leeren
-     * @param {boolean} alsoLocalStorage - Wenn true, auch den LocalStorage leeren
+     * Clear cache
+     * @param {boolean} alsoLocalStorage - If true, also clear LocalStorage
      */
     clear(alsoLocalStorage = false) {
         this.positions.clear();
