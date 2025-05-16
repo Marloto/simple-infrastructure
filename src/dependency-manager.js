@@ -139,9 +139,18 @@ export class DependencyManager {
      */
     handleDragEnd(event, d) {
         if (!this.isConnectionModeActive || !this.sourceSystem) return;
+
+        // Verbesserte Touch-Erkennung: Event-Position sichern
+        const clientX = event.sourceEvent.type.startsWith('touch') 
+            ? event.sourceEvent.changedTouches[0].clientX 
+            : event.sourceEvent.clientX;
+        
+        const clientY = event.sourceEvent.type.startsWith('touch') 
+            ? event.sourceEvent.changedTouches[0].clientY 
+            : event.sourceEvent.clientY;
         
         // Check if released over another node
-        const targetElement = document.elementFromPoint(event.sourceEvent.clientX, event.sourceEvent.clientY);
+        const targetElement = document.elementFromPoint(clientX, clientY);
         const targetNode = targetElement ? targetElement.closest('.node') : null;
         
         if (targetNode) {

@@ -75,6 +75,7 @@ export class SimulationManager extends EventEmitter {
         const node = curNode || this.getNodeById(systemId);
         if (!node) return null;
 
+        const stateBefore = node.isFixed;
         if (!state) {
             // Remove fixation
             node.isFixed = false;
@@ -101,7 +102,7 @@ export class SimulationManager extends EventEmitter {
         // Slightly restart simulation
         this.restart(0.1);
 
-        this.onToggleFixed && this.onToggleFixed(systemId, state);
+        this.onToggleFixed && state != stateBefore && this.onToggleFixed(systemId, state);
 
         return node.isFixed;
     }
@@ -397,10 +398,22 @@ export class SimulationManager extends EventEmitter {
      * Create drag behavior
      */
     createDragBehavior() {
+        const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
         return d3.drag()
+            .on("start", (event, d) => {
+                if (isTouchDevice && event.sourceEvent) {
+                    event.sourceEvent.preventDefault();
+                }
+                this.dragstarted(event, d);
+            })
             .on("start", (event, d) => this.dragstarted(event, d))
             .on("drag", (event, d) => this.dragged(event, d))
-            .on("end", (event, d) => this.dragended(event, d));
+            .on("end", (event, d) => this.dragended(event, d))
+            .touchable(true)
+            .filter(function(event) {
+                if (isTouchDevice) return true;
+                return !event.ctrlKey && !event.button;
+            });
     }
 
     /**

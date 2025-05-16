@@ -330,7 +330,9 @@ export class SystemVisualizer extends EventEmitter {
             .attr("dy", -40)
             .attr("text-anchor", "middle")
             .text(d => d.name)
-            .attr("fill", "#333");
+            .attr("fill", "#333")
+            .style("user-select", "none")
+            .style("pointer-events", "none");
 
         // Add group labels
         this.groupLabels = g.append("g")
@@ -343,6 +345,7 @@ export class SystemVisualizer extends EventEmitter {
             .style("font-size", "16px")
             .style("font-weight", "bold")
             .style("fill", d => d3.rgb(this.groupColorScale(d[0])).darker(2))
+            .style("user-select", "none")
             .style("pointer-events", "none")
             .text(d => {
                 // Display for merged groups
