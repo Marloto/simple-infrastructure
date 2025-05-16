@@ -6,7 +6,7 @@ An interactive web application for visualizing and managing IT infrastructures a
 
 ![Screenshot of the application](./screenshot.png)
 
-Disclaimer: The majority of this web-based tool was generated with Claude and GitHub Copilot. Based on a basic idea, the relevant components were created through several requirement-driven dialogues. Some concepts were manually adjusted, especially to ensure that fundamental coupling and cohesion remained manageable. Nevertheless, the current `index.js` and some other components still contain rather unstructured code for the final integration of UI components, which needs further refactoring.
+_Disclaimer: The majority of this web-based tool was generated with Claude and GitHub Copilot. Based on a basic idea, the relevant components were created through several requirement-driven dialogues. Some concepts were manually adjusted, especially to ensure that fundamental coupling and cohesion remained manageable. Nevertheless, the current `index.js` and some other components still contain rather unstructured code for the final integration of UI components, which needs further refactoring._
 
 ## Features
 
