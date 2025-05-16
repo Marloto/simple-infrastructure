@@ -35,7 +35,7 @@ function saveSystemData(data) {
     try {
         const yamlText = jsyaml.dump(data);
         localStorage.setItem('systems_yaml', yamlText);
-        showNotification('Data saved successfully', 'success');
+        console.log('Data saved successfully');
     } catch (error) {
         console.error('Error saving data:', error);
         showNotification('Error saving data', 'danger');
@@ -89,6 +89,14 @@ export class DataManager extends EventEmitter {
             this.data = newData;
             notify && this.emit('dataChanged', this.data);
         }
+    }
+
+    /**
+     * Completely removes the system data
+     * @param {Object} newData - The new system data
+     */
+    clearData(notify = true) {
+        this.setData({ systems: [], dependencies: [] }, notify);
     }
 
     /**

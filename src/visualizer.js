@@ -56,7 +56,7 @@ export class SystemVisualizer extends EventEmitter {
      * Initialisiert die Visualisierung
      */
     initialize() {
-        if (!this.data || !this.data.systems || this.data.systems.length === 0) {
+        if (!this.data) {
             this.showError("Keine Systemdaten verfügbar");
             return;
         }

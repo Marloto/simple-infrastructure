@@ -33,7 +33,7 @@ export class LlmIntegrationManager {
      * @param {string} [llmSystemPrompt] - Optional system prompt to use; defaults to the class's default if not provided.
      * @param {string} [llmPromptPrefix] - Optional prefix to prepend to prompts; defaults to an empty string if not provided.
      */
-    updateConfig(llmType, llmModel, llmApiKey, llmSystemPrompt = undefined, llmPromptPrefix = undefined) {
+    updateConfig(llmType = undefined, llmModel = undefined, llmApiKey = undefined, llmSystemPrompt = undefined, llmPromptPrefix = undefined) {
         this.config.llmType = llmType;
         this.config.llmModel = llmModel;
         this.config.apiKey = llmApiKey;
