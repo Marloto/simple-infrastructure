@@ -76,7 +76,7 @@ class ClaudeApi extends AbstractLlmApi {
         try {
             const body = JSON.stringify({
                 model: this.model || "claude-3-5-sonnet-20241022",
-                max_tokens: 1024,
+                max_tokens: 4096,
                 stream: true,
                 system: [{
                     type: "text",
