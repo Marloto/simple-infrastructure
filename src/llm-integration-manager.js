@@ -2,8 +2,8 @@ import {createGenerator, handleSse} from './completion.js'
 import { showNotification } from './utilities.js';
 
 /**
- * LlmIntegrationManager - Verwaltet die Integration eines LLM in die Systemvisualisierung
- * Konzentriert sich auf die Kernfunktionalität der LLM-Kommunikation und Datenmodell-Updates
+ * LlmIntegrationManager - Manages the integration of an LLM into the system visualization.
+ * Focuses on the core functionality of LLM communication and data model updates.
  */
 export class LlmIntegrationManager {
     constructor(options = {}) {
@@ -11,14 +11,14 @@ export class LlmIntegrationManager {
         this.initialized = false;
         this.isProcessing = false;
 
-        // Konfiguration mit Standardwerten
+        // Configuration with default values
         this.config = {
             apiKey: options.apiKey || "",
             llmType: options.llmType || "", // claude, openai, custom
             llmModel: options.llmModel || "", // like claude-3-7-sonnet-20250219
-            llmUrl: options.llmUrl || "", // Nur für custom notwendig
+            llmUrl: options.llmUrl || "", // Only needed for custom
             systemPrompt: options.systemPrompt || "",
-            promptPrefix: options.promptPrefixs || "",
+            promptPrefix: options.promptPrefix || "",
             onMessageReceived: options.onMessageReceived || null,
             onTyping: options.onTyping || null
         };
@@ -56,25 +56,25 @@ export class LlmIntegrationManager {
     }
 
     /**
-     * Initialisiert den LlmIntegrationManager
-     * @param {DataManager} dataManager - Der DataManager für die Datenverwaltung
+     * Initializes the LlmIntegrationManager
+     * @param {DataManager} dataManager - The DataManager for data management
      */
     initialize(dataManager) {
         if (this.initialized) return;
 
         if (!dataManager) {
-            console.error("Kein DataManager bereitgestellt");
+            console.error("No DataManager provided");
             return;
         }
 
         this.dataManager = dataManager;
 
         this.initialized = true;
-        console.log("LlmIntegrationManager wurde initialisiert");
+        console.log("LlmIntegrationManager has been initialized");
     }
 
     /**
-     * Erstellt den LLM-Generator basierend auf der Konfiguration
+     * Creates the LLM generator based on the configuration
      */
     createLlmGenerator() {
         const variables = {
@@ -82,7 +82,7 @@ export class LlmIntegrationManager {
             dataStructure: this.getDataStructureAsPromptBlock()
         };
 
-        // Generator mit der createGenerator-Funktion erstellen
+        // Create generator using the createGenerator function
         const generator = createGenerator(
             variables,
             this.config.systemPrompt || this.getDefaultSystemPrompt(),
@@ -96,33 +96,33 @@ export class LlmIntegrationManager {
         );
 
         if (!generator) {
-            console.error("Fehler beim Erstellen des LLM-Generators");
-            showNotification("LLM-Integration konnte nicht initialisiert werden", "danger");
+            console.error("Error creating the LLM generator");
+            showNotification("LLM integration could not be initialized", "danger");
         }
 
         return generator;
     }
 
     /**
-     * Verarbeitet eine Benutzeranfrage und sendet sie an das LLM
-     * @param {string} userInput - Die Benutzereingabe
-     * @returns {Promise<Object>} - Verarbeitungsergebnis mit Antwort und Datenänderungen
+     * Processes a user request and sends it to the LLM
+     * @param {string} userInput - The user input
+     * @returns {Promise<Object>} - Processing result with response and data changes
      */
     async processUserInput(userInput, callback) {
         if (!this.isConfigurated()) {
-            return { success: false, message: "Fehlende Konfigurationen für die Anbindung an ChatBot-Provider" };
+            return { success: false, message: "Missing configuration for connecting to ChatBot provider" };
         }
 
         let generator;
         try {
             generator = this.createLlmGenerator();
         } catch (error) {
-            console.error("Fehler beim Erstellen des LLM-Generators:", error);
-            return { success: false, message: "Fehler beim Erstellen des LLM-Generators" };
+            console.error("Error creating the LLM generator:", error);
+            return { success: false, message: "Error creating the LLM generator" };
         }
 
         if (!userInput || this.isProcessing) {
-            return { success: false, message: "Eingabe kann nicht verarbeitet werden" };
+            return { success: false, message: "Input cannot be processed" };
         }
 
         this.isProcessing = true;
@@ -150,7 +150,7 @@ export class LlmIntegrationManager {
                 generator,
                 (error, token) => {
                     if (error) {
-                        console.error("Stream-Fehler:", error);
+                        console.error("Stream-Error:", error);
                         return;
                     }
 
@@ -184,16 +184,16 @@ export class LlmIntegrationManager {
                         result.differences = this.calculateDifferences(currentData, parsedData);
                         result.success = true;
                     } else {
-                        result.message = "Die YAML-Struktur ist ungültig";
+                        result.message = "The YAML structure is invalid";
                     }
                 } catch (error) {
-                    console.error("Fehler beim Parsen der YAML-Antwort:", error);
-                    result.message = "Die YAML-Antwort konnte nicht verarbeitet werden";
+                    console.error("Error parsing the YAML response:", error);
+                    result.message = "The YAML response could not be processed";
                 }
             } else {
                 // Normale Konversation ohne YAML-Änderungen
                 result.success = true;
-                result.message = "Keine Infrastrukturänderungen erkannt";
+                result.message = "No infrastructure changes detected";
             }
 
             // Falls ein Callback für empfangene Nachrichten definiert ist, diesen aufrufen
@@ -203,8 +203,8 @@ export class LlmIntegrationManager {
 
             return result;
         } catch (error) {
-            console.error("Fehler bei der LLM-Verarbeitung:", error);
-            result.message = "Es ist ein Fehler bei der Verarbeitung aufgetreten";
+            console.error("Error during LLM processing:", error);
+            result.message = "An error occurred during processing";
             return result;
         } finally {
             this.isProcessing = false;
@@ -249,12 +249,12 @@ ${currentData.dependencies.map(dep => `  - source: ${dep.source}
 systems:
   - id: systemId
     name: System Name
-    description: Beschreibung
-    category: kategorie
+    description: Description for the system
+    category: core/legacy/data/service/external
     groups:
       - gruppe1
       - gruppe2
-    status: status
+    status: active/planned/deprecated/retired
     knownUsage: true/false
     delete: true/false
     tags:
@@ -262,19 +262,19 @@ systems:
       - tag2
 
 dependencies:
-  - source: quellSystemId
-    target: zielSystemId
-    type: verbindungstyp
-    description: Beschreibung der Verbindung
+  - source: sourceSystemId
+    target: targetSystemId
+    type: data/integration/authentication/monitoring
+    description: Description for the dependency
     delete: true/false
-    protocol: Verwendetes Protokoll
+    protocol: Name of Protocol
 \`\`\`
 `;
     }
 
     /**
-     * Erstellt einen YAML-Markdown-Block als Beispiel für den Prompt
-     * @returns {string} - Die formatierte Nachricht mit Kontext
+     * Creates a YAML markdown block as an example for the prompt
+     * @returns {string} - The formatted message with context
      */
     getExampleDataAsPromptBlock() {
         return `
@@ -282,73 +282,67 @@ dependencies:
 systems:
   - id: system1
     name: System Name
-    description: Beschreibung
-    category: category
+    description: Some description for the system
+    category: core
     groups:
       - group1
       - group2
-    status: status
-    delete: true/false
-    knownUsage: true/false
-    # Weitere Eigenschaften...
+    status: active
+    delete: false
+    knownUsage: true
 
 dependencies:
   - source: system1
     target: system2
-    type: type
-    description: Beschreibung
-    delete: true/false
-    protocol: Protokoll
+    type: data
+    description: Some description for the dependency
+    delete: false
+    protocol: Protocol
 \`\`\`
 `;
     }
-
     /**
-     * Hilfsfunktion zum Formatieren der Gruppen-Information für die YAML-Darstellung
-     * @param {Object} system - Das System-Objekt
-     * @returns {string} - Formatierte Gruppen-Information
+     * Helper function to format the groups information for the YAML representation
+     * @param {Object} system - The system object
+     * @returns {string} - Formatted groups information
      */
     formatGroups(system) {
         let groupsText = '';
 
-        // Fall 1: system hat ein groups-Array mit Einträgen
+        // System has a groups array with entries
         if (Array.isArray(system.groups) && system.groups.length > 0) {
             groupsText = '\n    groups:';
             system.groups.forEach(group => {
                 groupsText += `\n      - ${group}`;
             });
         }
-        // Fall 2: Legacy-Fall mit einfachem group-Feld
-        else if (system.group && typeof system.group === 'string') {
-            groupsText = `\n    group: ${system.group}`;
-        }
 
         return groupsText;
     }
 
     /**
-     * Wendet Datenänderungen auf das Datenmodell an
-     * @param {Object} differences - Die geänderten Daten
-     * @returns {boolean} - True bei Erfolg
+     * Applies data changes to the data model
+     * @param {Object} differences - The changed data
+     * @returns {boolean} - True on success
      */
     applyChanges(differences) {
         try {
-            // Daten im DataManager aktualisieren
+            // Update data in the DataManager
             this.dataManager.applyBatch(differences);
-            showNotification("Die Änderungen wurden erfolgreich angewendet", "success");
+            showNotification("Changes have been successfully applied", "success");
             return true;
         } catch (error) {
-            console.error("Fehler beim Anwenden der Änderungen:", error);
-            showNotification("Fehler beim Anwenden der Änderungen", "danger");
+            console.error("Error applying changes:", error);
+            showNotification("Error applying changes", "danger");
             return false;
         }
     }
 
     /**
-     * Berechnet die Unterschiede zwischen zwei Datenmodellen
-     * @param {Object} currentData - Aktuelle Daten
-     * @param {Object} newData - Neue Daten
-     * @returns {Object} Unterschiede (hinzugefügt, geändert, entfernt)
+     * Calculates the differences between two data models
+     * @param {Object} currentData - Current data
+     * @param {Object} newData - New data
+     * @returns {Object} Differences (added, modified, removed)
      */
     calculateDifferences(currentData, newData) {
         const differences = {
@@ -366,12 +360,12 @@ dependencies:
             }
         };
 
-        // Systeme vergleichen
+        // Compare systems
         const currentSystemIds = new Set(currentData.systems.map(s => s.id));
 
-        // Hinzugefügte Systeme
+        // Added and removed systems
         newData.systems.forEach(newSystem => {
-            // Gelöschte Systeme
+            // Removed systems
             if (newSystem.delete) {
                 differences.removed.systems.push(newSystem);
                 return;
@@ -379,7 +373,7 @@ dependencies:
             if (!currentSystemIds.has(newSystem.id)) {
                 differences.added.systems.push(newSystem);
             } else {
-                // Geänderte Systeme
+                // Modified systems
                 const currentSystem = currentData.systems.find(s => s.id === newSystem.id);
                 if (!this.areSystemsEqual(currentSystem, newSystem)) {
                     differences.modified.systems.push(newSystem);
@@ -387,10 +381,10 @@ dependencies:
             }
         });
 
-        // Abhängigkeiten vergleichen
+        // Compare dependencies
         const currentDepKeys = new Set(currentData.dependencies.map(d => `${d.source}-${d.target}`));
 
-        // Hinzugefügte Abhängigkeiten
+        // Added and removed dependencies
         newData.dependencies.forEach(newDep => {
             if (newDep.delete) {
                 differences.removed.dependencies.push(newDep);
@@ -400,7 +394,7 @@ dependencies:
             if (!currentDepKeys.has(key)) {
                 differences.added.dependencies.push(newDep);
             } else {
-                // Geänderte Abhängigkeiten
+                // Modified dependencies
                 const currentDep = currentData.dependencies.find(d =>
                     d.source === newDep.source && d.target === newDep.target);
                 if (!this.areDependenciesEqual(currentDep, newDep)) {
@@ -413,15 +407,15 @@ dependencies:
     }
 
     /**
-     * Vergleicht zwei Systeme auf Gleichheit, angepasst für Multi-Gruppen
-     * @param {Object} system1 - Erstes System
-     * @param {Object} system2 - Zweites System
-     * @returns {boolean} True, wenn die Systeme gleich sind
+     * Compares two systems for equality, adapted for multi-group support
+     * @param {Object} system1 - First system
+     * @param {Object} system2 - Second system
+     * @returns {boolean} True if the systems are equal
      */
     areSystemsEqual(system1, system2) {
         if (!system1 || !system2) return false;
 
-        // Vergleich der Haupteigenschaften
+        // Compare main properties
         if (system1.name !== system2.name ||
             system1.description !== system2.description ||
             system1.category !== system2.category ||
@@ -430,7 +424,7 @@ dependencies:
             return false;
         }
 
-        // Gruppen vergleichen
+        // Compare groups
         const groups1 = this.getSystemGroups(system1);
         const groups2 = this.getSystemGroups(system2);
 
@@ -438,14 +432,14 @@ dependencies:
             return false;
         }
 
-        // Prüfen, ob alle Gruppen übereinstimmen (Reihenfolge unwichtig)
+        // Check if all groups match (order does not matter)
         for (const group of groups1) {
             if (!groups2.includes(group)) {
                 return false;
             }
         }
 
-        // Tags vergleichen (falls vorhanden)
+        // Compare tags (if present)
         if (Array.isArray(system1.tags) && Array.isArray(system2.tags)) {
             if (system1.tags.length !== system2.tags.length) {
                 return false;
@@ -464,9 +458,9 @@ dependencies:
     }
 
     /**
-     * Hilfsfunktion zum Extrahieren aller Gruppen eines Systems
-     * @param {Object} system - Das System-Objekt
-     * @returns {Array} Array mit allen Gruppennamen
+     * Helper function to extract all groups of a system
+     * @param {Object} system - The system object
+     * @returns {Array} Array with all group names
      */
     getSystemGroups(system) {
         let groups = [];
@@ -481,10 +475,10 @@ dependencies:
     }
 
     /**
-     * Vergleicht zwei Abhängigkeiten auf Gleichheit
-     * @param {Object} dep1 - Erste Abhängigkeit
-     * @param {Object} dep2 - Zweite Abhängigkeit
-     * @returns {boolean} True, wenn die Abhängigkeiten gleich sind
+     * Compares two dependencies for equality
+     * @param {Object} dep1 - First dependency
+     * @param {Object} dep2 - Second dependency
+     * @returns {boolean} True if the dependencies are equal
      */
     areDependenciesEqual(dep1, dep2) {
         if (!dep1 || !dep2) return false;
@@ -495,12 +489,12 @@ dependencies:
     }
 
     /**
-     * Validiert die Datenstruktur
-     * @param {Object} data - Die zu validierende Datenstruktur
-     * @returns {boolean} True, wenn die Daten valide sind
+     * Validates the data structure
+     * @param {Object} data - The data structure to validate
+     * @returns {boolean} True if the data is valid
      */
     validateSystemData(data) {
-        // Überprüfe, ob die Grundstruktur vorhanden ist
+        // Check if the basic structure exists
         if (!data || (!Array.isArray(data.systems) && !Array.isArray(data.dependencies))) {
             return false;
         }
@@ -508,13 +502,13 @@ dependencies:
         data.systems = data.systems || [];
         data.dependencies = data.dependencies || [];
 
-        // Überprüfe, ob alle Systeme eine ID haben
+        // Check if all systems have an ID
         const allSystemsHaveId = data.systems.every(system => !!system.id);
         if (!allSystemsHaveId) {
             return false;
         }
 
-        // Überprüfe, ob alle Abhängigkeiten gültige source und target haben
+        // Check if all dependencies have valid source and target
         const currentData = this.dataManager.getData();
         const allDependenciesValid = data.dependencies.every(dep =>
             !!dep.source && !!dep.target &&
@@ -526,12 +520,12 @@ dependencies:
     }
 
     /**
-     * Extrahiert YAML-Inhalt aus einer LLM-Antwort
-     * @param {string} response - Die LLM-Antwort
-     * @returns {string|null} Der extrahierte YAML-Inhalt oder null
+     * Extracts YAML content from an LLM response
+     * @param {string} response - The LLM response
+     * @returns {string|null} The extracted YAML content or null
      */
     extractYamlFromResponse(response) {
-        // Suche nach YAML-Blöcken in der Antwort (mit Markdown-Code-Block)
+        // Search for YAML blocks in the response (with Markdown code block)
         const yamlRegex = /```(?:yaml)?\s*([\s\S]*?)\s*```/i;
         const match = response.match(yamlRegex);
 
@@ -543,11 +537,13 @@ dependencies:
     }
 
     /**
-     * Gibt den Standard-Systemprompt zurück
-     * @returns {string} Der Standard-Systemprompt
+     * Returns the default system prompt
+     * @returns {string} The default system prompt
      */
     getDefaultSystemPrompt() {
-        return `Du bist ein Infrastruktur-Assistent, der dabei hilft, IT-Systeme und deren Abhängigkeiten zu verwalten. IT-Systeme bestehen aus id, name, description, category, status, knownUsage, groups (array, optional) und tags (array, optional). Abhängigkeiten zwischen Systemen haben die Attribute source, target, type, description und protocol. Du analysierst Benutzeranfragen und wandelst sie in strukturierte YAML-Definitionen um.
+        const isGerman = typeof navigator !== "undefined" && navigator.language && navigator.language.startsWith("de");
+        if (isGerman) {
+            return `Du bist ein Infrastruktur-Assistent, der dabei hilft, IT-Systeme und deren Abhängigkeiten zu verwalten. IT-Systeme bestehen aus id, name, description, category, status, knownUsage, groups (array, optional) und tags (array, optional). Abhängigkeiten zwischen Systemen haben die Attribute source, target, type, description und protocol. Du analysierst Benutzeranfragen und wandelst sie in strukturierte YAML-Definitionen um.
 
 Akzeptable Kategorien (category) für Systeme sind:
 - core: Zentrale Systeme
@@ -578,15 +574,50 @@ Halte dich an dieses Format:
 
 Wenn du nach allgemeinen Informationen über die Infrastrukturvisualisierung gefragt wirst, 
 antworte mit hilfreichen Erklärungen, ohne YAML zurückzugeben.`;
+        } else {
+            return `You are an infrastructure assistant that helps manage IT systems and their dependencies. IT systems consist of id, name, description, category, status, knownUsage, groups (array, optional), and tags (array, optional). Dependencies between systems have the attributes source, target, type, description, and protocol. You analyze user requests and convert them into structured YAML definitions.
+
+Acceptable categories (category) for systems are:
+- core: Core systems
+- legacy: Legacy systems
+- data: Data storage and processing
+- service: Services and applications
+- external: External systems
+
+Connection types (type) between systems can be:
+- data: Data exchange
+- integration: System integration
+- authentication: Authentication
+- monitoring: Monitoring
+
+Status values (status) for systems:
+- active: Active in use
+- planned: Planned
+- deprecated: Deprecated
+- retired: Retired
+
+If the user asks you to change the infrastructure (e.g., add, edit, or delete systems), 
+respond with the new, changed, and deleted elements in the YAML structure. Deleted elements are marked with the attribute \`delete: true\`. 
+Do not include explanations inside the YAML block.
+
+Stick to this format:
+
+{{dataStructure}}
+
+If you are asked general questions about infrastructure visualization, 
+respond with helpful explanations without returning YAML.`;
+        }
     }
 
     /**
-     * Erstellt den Standard-Prompt-Header
+     * Creates the default prompt header, use {{currentData}}, {{userInput}} and {{example}} as placeholders
      * 
-     * @returns {string} - Die formatierte Nachricht mit Kontext
+     * @returns {string} - The formatted message with context
      */
     getDefaultPromptPrefix() {
-        return `
+        const isGerman = typeof navigator !== "undefined" && navigator.language && navigator.language.startsWith("de");
+        if (isGerman) {
+            return `
 Hier ist die aktuelle YAML-Darstellung der Infrastruktur:
 
 {{currentData}}
@@ -601,5 +632,22 @@ Wenn du Änderungen an der Infrastruktur vornehmen sollst, gib die neuen, aktual
 
 Wenn keine Änderungen erforderlich sind, antworte mit normaler Konversation. Gib YAML nur zurück, wenn Infrastrukturänderungen angefordert wurden.
 `;
+        } else {
+            return `
+Here is the current YAML representation of the infrastructure:
+
+{{currentData}}
+
+User request:
+
+{{userInput}}
+
+If you are asked to make changes to the infrastructure, return the new, updated, or deleted elements in YAML using the following format:
+
+{{example}}
+
+If no changes are required, respond with a normal conversation. Only return YAML if infrastructure changes are requested.
+`;
+        }
     }
 }

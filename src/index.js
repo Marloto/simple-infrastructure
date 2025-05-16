@@ -105,7 +105,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             llmManager.updateConfig();
             document.getElementById('llm-chat-container').style.display = 'none';
             resetModal.hide();
-            showNotification("Alle Daten und Konfigurationen wurden gelöscht.", "info");
+            showNotification("All data and configurations have been deleted.", "info");
         };
     });
 
@@ -158,12 +158,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         const toggleButton = document.querySelector('.toggle-fix-btn');
         if (state) {
             toggleButton.classList.add('active');
-            toggleButton.title = 'Position freigeben';
-            showNotification('Position wurde fixiert', 'info');
+            toggleButton.title = 'Release position';
+            showNotification('Position has been fixed', 'info');
         } else {
             toggleButton.classList.remove('active');
-            toggleButton.title = 'Position fixieren';
-            showNotification('Position wurde freigegeben', 'info');
+            toggleButton.title = 'Fix position';
+            showNotification('Position has been released', 'info');
         }
     });
 
@@ -268,7 +268,7 @@ function setupLlmChatInterface(llmManager) {
             if (isVisible()) {
                 chatContainer.style.display = 'none';
                 toggleLlmChat.classList.remove('active');
-                showNotification("Bitte konfiguriere den Chat-Assistenten.", "warning");
+                showNotification("Please configure the chat assistant.", "warning");
             }
             return false;
         }
@@ -277,6 +277,12 @@ function setupLlmChatInterface(llmManager) {
 
     if (!llmManager.isConfigurated()) {
         chatContainer.style.display = 'none';
+    }
+
+    function addWelcome() {
+        if (chatMessages.children.length === 0) {
+            addSystemMessage("How can I assist you with managing your IT infrastructure? You can describe changes to me, and I will update the model for you.");
+        }
     }
 
     function saveConfig() {
@@ -290,9 +296,9 @@ function setupLlmChatInterface(llmManager) {
         localStorage.setItem("llmType", llmType);
         if (llmApiKey !== hiddenKeyIfNotEmpty) {
             encryptAndStore("llmApiKey", llmApiKey).then(() => {
-                console.log("API-Key gespeichert");
+                console.log("API key saved");
             }).catch((error) => {
-                console.error("Fehler beim Speichern des API-Keys:", error);
+                console.error("Error saving API key:", error);
             });
         }
         localStorage.setItem("llmModel", llmModel);
@@ -303,9 +309,7 @@ function setupLlmChatInterface(llmManager) {
             chatContainer.style.display = 'flex';
             if (isVisible()) {
                 chatInput.focus();
-                if (chatMessages.children.length === 0) {
-                    addSystemMessage("Wie kann ich dir bei der Verwaltung deiner IT-Infrastruktur helfen? Du kannst mir Änderungen beschreiben, und ich aktualisiere das Modell für dich.");
-                }
+                addWelcome();
             }
         }
         configModal.hide();
@@ -338,11 +342,7 @@ function setupLlmChatInterface(llmManager) {
                 changeLlmConfig();
             } else {
                 chatInput.focus();
-
-                // Willkommensnachricht anzeigen, wenn der Chat leer ist
-                if (chatMessages.children.length === 0) {
-                    addSystemMessage("Wie kann ich dir bei der Verwaltung deiner IT-Infrastruktur helfen? Du kannst mir Änderungen beschreiben, und ich aktualisiere das Modell für dich.");
-                }
+                addWelcome();
             }
         }
     }
@@ -353,15 +353,12 @@ function setupLlmChatInterface(llmManager) {
             if (!llmManager.isConfigurated()) {
                 changeLlmConfig();
             } else {
-                // Willkommensnachricht anzeigen, wenn der Chat leer ist
-                if (chatMessages.children.length === 0) {
-                    addSystemMessage("Wie kann ich dir bei der Verwaltung deiner IT-Infrastruktur helfen? Du kannst mir Änderungen beschreiben, und ich aktualisiere das Modell für dich.");
-                }
+                addWelcome();
             }
         }
     });
 
-    // Let Chat-Input growth (chatInput)
+    // Let chat input grow (chatInput)
     chatInput.addEventListener('input', () => {
         chatInput.style.height = 'auto';
         const maxRows = 3;
@@ -376,10 +373,10 @@ function setupLlmChatInterface(llmManager) {
         document.getElementById('toggle-llm-chat').classList.remove('active');
     });
 
-    // Nachrichten senden
+    // Send messages
     sendButton.addEventListener('click', sendMessage);
 
-    // Enter-Taste zum Senden (ohne Shift)
+    // Enter key to send (without Shift)
     chatInput.addEventListener('keydown', (event) => {
         if (event.key === 'Enter' && !event.shiftKey) {
             event.preventDefault();
@@ -387,23 +384,23 @@ function setupLlmChatInterface(llmManager) {
         }
     });
 
-    // Nachricht senden und LLM-Antwort verarbeiten
+    // Send message and process LLM response
     async function sendMessage() {
         const userInput = chatInput.value.trim();
         if (!userInput) return;
 
-        // Benutzereingabe anzeigen
+        // Display user input
         addUserMessage(userInput);
         chatInput.value = '';
 
-        // Loading-Indikator anzeigen
+        // Show loading indicator
         loadingIndicator.style.display = 'flex';
 
-        // Aktuelle Nachricht im UI zusammenbauen
+        // Build current message in the UI
         let currentAssistantMessage = '';
         const messageElement = addAssistantMessage('');
 
-        // LLM-Anfrage verarbeiten
+        // Process LLM request
         let currentResult = "";
         const result = await llmManager.processUserInput(userInput, (token) => {
             currentResult += token;
@@ -411,85 +408,87 @@ function setupLlmChatInterface(llmManager) {
         });
         console.log(result);
 
-        // Loading-Indikator ausblenden
+        // Hide loading indicator
         loadingIndicator.style.display = 'none';
 
-        // Antwort anzeigen
+        // Display response
         messageElement.innerHTML = marked ? marked.parse(result.originalResponse) : result.originalResponse;
 
-        // Bei YAML-Antwort mit Änderungen
+        // If YAML response with changes
         if (result.success && result.yamlData) {
             showUpdateConfirmation(result.yamlData, result.differences);
         }
     }
 
-    // Zeigt Bestätigungsdialog für Änderungen an
+    // Shows confirmation dialog for changes
     function showUpdateConfirmation(newData, differences) {
-        // Nur bestätigen lassen, wenn es Änderungen gibt
-        if (differences.added.systems.length === 0 &&
+        // Only show confirmation if there are changes
+        if (
+            differences.added.systems.length === 0 &&
             differences.modified.systems.length === 0 &&
             differences.removed.systems.length === 0 &&
             differences.added.dependencies.length === 0 &&
             differences.modified.dependencies.length === 0 &&
-            differences.removed.dependencies.length === 0) {
+            differences.removed.dependencies.length === 0
+        ) {
             return;
         }
 
-        // Zusammenfassung der Änderungen erstellen
-        let summaryText = "Folgende Änderungen wurden erkannt:\n\n";
+        // Create summary of changes
+        let summaryText = "The following changes were detected:\n\n";
 
-        // Systeme
+        // Systems
         if (differences.added.systems.length > 0) {
-            summaryText += `➕ ${differences.added.systems.length} neue Systeme: ${differences.added.systems.map(s => s.name).join(', ')}\n`;
+            summaryText += `➕ ${differences.added.systems.length} new systems: ${differences.added.systems.map(s => s.name).join(', ')}\n`;
         }
         if (differences.modified.systems.length > 0) {
-            summaryText += `✏️ ${differences.modified.systems.length} geänderte Systeme: ${differences.modified.systems.map(s => s.name).join(', ')}\n`;
+            summaryText += `✏️ ${differences.modified.systems.length} modified systems: ${differences.modified.systems.map(s => s.name).join(', ')}\n`;
         }
         if (differences.removed.systems.length > 0) {
-            summaryText += `❌ ${differences.removed.systems.length} entfernte Systeme: ${differences.removed.systems.map(s => s.name).join(', ')}\n`;
+            summaryText += `❌ ${differences.removed.systems.length} removed systems: ${differences.removed.systems.map(s => s.name).join(', ')}\n`;
         }
 
-        // Abhängigkeiten
+        // Dependencies
         if (differences.added.dependencies.length > 0) {
-            summaryText += `➕ ${differences.added.dependencies.length} neue Verbindungen\n`;
+            summaryText += `➕ ${differences.added.dependencies.length} new connections\n`;
         }
         if (differences.modified.dependencies.length > 0) {
-            summaryText += `✏️ ${differences.modified.dependencies.length} geänderte Verbindungen\n`;
+            summaryText += `✏️ ${differences.modified.dependencies.length} modified connections\n`;
         }
         if (differences.removed.dependencies.length > 0) {
-            summaryText += `❌ ${differences.removed.dependencies.length} entfernte Verbindungen\n`;
+            summaryText += `❌ ${differences.removed.dependencies.length} removed connections\n`;
         }
 
-        // Nachricht erstellen
+        // Create message
         const messageElement = document.createElement('div');
         messageElement.className = 'llm-chat-message llm-system-message';
         messageElement.textContent = summaryText;
 
-        // Aktions-Buttons hinzufügen
+        // Add action buttons
         const actionsDiv = document.createElement('div');
         actionsDiv.className = 'llm-update-actions';
 
         const applyButton = document.createElement('button');
         applyButton.className = 'btn btn-primary';
-        applyButton.textContent = 'Änderungen anwenden';
+        applyButton.textContent = 'Apply changes';
         applyButton.addEventListener('click', () => {
-            // Daten im DataManager aktualisieren
+            // Update data in DataManager
             llmManager.applyChanges(differences);
 
-            // Feedback anzeigen
-            addSystemMessage("Die Änderungen wurden erfolgreich angewendet.");
+            // Show feedback
+            addSystemMessage("The changes have been applied successfully.");
 
-            // Button-Container entfernen
+            // Remove button container
             messageElement.removeChild(actionsDiv);
         });
 
         const cancelButton = document.createElement('button');
         cancelButton.className = 'btn btn-outline-secondary';
-        cancelButton.textContent = 'Verwerfen';
+        cancelButton.textContent = 'Discard';
         cancelButton.addEventListener('click', () => {
-            addSystemMessage("Die Änderungen wurden verworfen.");
+            addSystemMessage("The changes have been discarded.");
 
-            // Button-Container entfernen
+            // Remove button container
             messageElement.removeChild(actionsDiv);
         });
 
@@ -497,12 +496,10 @@ function setupLlmChatInterface(llmManager) {
         actionsDiv.appendChild(cancelButton);
         messageElement.appendChild(actionsDiv);
 
-        // Zum Chat hinzufügen
+        // Add to chat
         chatMessages.appendChild(messageElement);
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
-
-    // Hilfsfunktionen zum Hinzufügen von Nachrichten
 
     function addUserMessage(message) {
         const messageElement = document.createElement('div');

@@ -3,7 +3,7 @@ import { NodeCache } from './node-cache.js';
 import { EventEmitter } from './event-emitter.js';
 
 /**
- * SystemVisualizer - Visualisiert IT-Systeme und deren Abhängigkeiten als interaktiven Graphen
+ * SystemVisualizer - Visualizes IT systems and their dependencies as an interactive graph
  */
 export class SystemVisualizer extends EventEmitter {
     constructor(containerId, dataManager) {
@@ -11,41 +11,41 @@ export class SystemVisualizer extends EventEmitter {
         this.containerId = containerId;
         this.dataManager = dataManager;
 
-        // Getter für Zugriff auf aktuelle Daten
+        // Getter for access to current data
         Object.defineProperty(this, 'data', {
             get: () => this.dataManager.getData()
         });
 
-        // D3-Visualisierungsvariablen
+        // D3 visualization variables
         this.svg = null;
         this.width = 0;
         this.height = 0;
         this.zoom = null;
 
-        // UI-Zustände
+        // UI states
         this.searchResults = [];
         this.activeFilters = {
             categories: ["core", "legacy", "data", "service", "external"],
             knownUsage: ["known", "unknown"]
         };
 
-        // Farbskalen
+        // Color scales
         this.colorScale = d3.scaleOrdinal()
             .domain(["core", "legacy", "data", "service", "external"])
             .range(["#0d6efd", "#6c757d", "#198754", "#ffc107", "#dc3545"]);
         this.groupColorScale = d3.scaleOrdinal(d3.schemeCategory10);
 
-        // Node-Cache erstellen
+        // Create node cache
         this.nodeCache = new NodeCache({
             useLocalStorage: true,
             localStorageKey: 'system_visualizer_node_positions',
             debounceTime: 250
         });
 
-        // SimulationManager erstellen (wird später initialisiert)
+        // SimulationManager (will be initialized later)
         this.simulationManager = null;
 
-        // Visualisierungselemente
+        // Visualization elements
         this.nodeElements = null;
         this.linkElements = null;
         this.groupHulls = null;
@@ -53,11 +53,11 @@ export class SystemVisualizer extends EventEmitter {
     }
 
     /**
-     * Initialisiert die Visualisierung
+     * Initializes the visualization
      */
     initialize() {
         if (!this.data) {
-            this.showError("Keine Systemdaten verfügbar");
+            console.error("No data available for visualization");
             return;
         }
 
@@ -65,9 +65,9 @@ export class SystemVisualizer extends EventEmitter {
         this.setupZoom();
         this.attachEventListeners();
 
-        // Auf Datenänderungen reagieren
+        // React to data changes
         this.dataManager.on('dataChanged', () => {
-            // Visualisierung neu erstellen
+            // Recreate visualization
             const container = document.getElementById(this.containerId);
             if (container) {
                 container.innerHTML = '';
@@ -76,7 +76,7 @@ export class SystemVisualizer extends EventEmitter {
             }
         });
 
-        // Details-Panel-Aktualisierung bei Datenänderungen
+        // Update details panel on data changes
         this.dataManager.on('dataChanged', () => {
             const detailsPanel = document.getElementById('details-panel');
             if (detailsPanel && detailsPanel.classList.contains('active')) {
@@ -92,10 +92,10 @@ export class SystemVisualizer extends EventEmitter {
             }
         });
 
-        // Event-Listener für Fenstergrößenänderungen
+        // Event listener for window resize
         window.addEventListener('resize', this.handleResize.bind(this));
 
-        // Vor dem Beenden Cache aktualisieren
+        // Update cache before leaving
         window.addEventListener('beforeunload', () => {
             if (this.simulationManager) {
                 this.simulationManager.stop();
@@ -104,31 +104,31 @@ export class SystemVisualizer extends EventEmitter {
     }
 
     /**
-     * Erstellt die D3.js-Visualisierung
+     * Creates the D3.js visualization
      */
     createVisualization() {
         const container = document.getElementById(this.containerId);
 
         if (!container) {
-            console.error(`Container mit ID "${this.containerId}" nicht gefunden`);
+            console.error(`Container with ID "${this.containerId}" not found`);
             return;
         }
 
-        // Größe und Margins (Vollbild)
+        // Size and margins (fullscreen)
         this.width = container.clientWidth;
         this.height = container.clientHeight;
 
-        // SVG erstellen
+        // Create SVG
         this.svg = d3.select(container)
             .append("svg")
             .attr("width", this.width)
             .attr("height", this.height);
 
-        // Gruppe für Zoom
+        // Group for zoom
         const g = this.svg.append("g");
 
-        // Tooltip erstellen
-        // Tooltip-Element suchen oder erstellen (als D3-Selection)
+        // Create tooltip
+        // Find or create tooltip element (as D3 selection)
         let tooltip = d3.select("body").select(".tooltip");
         if (tooltip.empty()) {
             tooltip = d3.select("body").append("div")
@@ -136,14 +136,14 @@ export class SystemVisualizer extends EventEmitter {
                 .style("opacity", 0);
         }
 
-        // Graph-Daten vorbereiten und filtern
+        // Prepare and filter graph data
         const nodes = this.getFilteredNodes();
         const links = this.getFilteredLinks(nodes);
 
-        // Gruppierungen identifizieren
+        // Identify groupings
         const groups = this.identifyGroups(nodes);
 
-        // SimulationManager erstellen
+        // Create SimulationManager
         this.simulationManager = new SimulationManager({
             width: this.width,
             height: this.height,
@@ -158,14 +158,14 @@ export class SystemVisualizer extends EventEmitter {
             },
         });
 
-        // Pfeilspitzen für die Links
+        // Arrowheads for the links
         g.append("defs").selectAll("marker")
             .data(["data", "integration", "authentication", "monitoring"])
             .enter().append("marker")
             .attr("id", d => `arrowhead-${d}`)
             .attr("viewBox", "0 -5 10 10")
-            .attr("refX", 8)  // Kein Versatz - Pfeilspitze beginnt am Ende des Pfades
-            .attr("refY", 0)  // Kein Versatz
+            .attr("refX", 8)  // No offset - arrowhead starts at end of path
+            .attr("refY", 0)  // No offset
             .attr("markerWidth", 6)
             .attr("markerHeight", 6)
             .attr("orient", "auto")
@@ -181,11 +181,11 @@ export class SystemVisualizer extends EventEmitter {
                 }
             });
 
-        // Gruppenrahmen zeichnen (vor den Knoten und Links)
+        // Draw group hulls (before nodes and links)
         this.groupHulls = g.append("g")
             .attr("class", "groups")
             .selectAll(".group-hull")
-            .data(Object.entries(groups).filter(([name]) => name !== "ungrouped")) // "undefined" Gruppe ausfiltern
+            .data(Object.entries(groups).filter(([name]) => name !== "ungrouped")) // filter out "undefined" group
             .enter().append("path")
             .attr("class", "group-hull")
             .attr("data-group", d => d[0])
@@ -195,9 +195,8 @@ export class SystemVisualizer extends EventEmitter {
             .style("fill-opacity", 0.2)
             .style("stroke-opacity", 0.4);
 
-        // Links zeichnen
+        // Draw links
         const that = this;
-        // Links zeichnen
         this.linkElements = g.append("g")
             .attr("class", "links")
             .selectAll("path")
@@ -218,17 +217,17 @@ export class SystemVisualizer extends EventEmitter {
                 const targetSystem = nodes.find(n => n.id === d.target.id || n.id === d.target);
 
                 tooltip.html(`
-                    <strong>${sourceSystem ? sourceSystem.name : 'Unbekannt'} → ${targetSystem ? targetSystem.name : 'Unbekannt'}</strong><br>
-                    ${d.description || 'Keine Beschreibung'}<br>
-                    <em>Protokoll: ${d.protocol || 'Nicht spezifiziert'}</em>
+                    <strong>${sourceSystem ? sourceSystem.name : 'Unknown'} → ${targetSystem ? targetSystem.name : 'Unknown'}</strong><br>
+                    ${d.description || 'No description'}<br>
+                    <em>Protocol: ${d.protocol || 'Not specified'}</em>
                 `);
 
-                // Tooltip mittig unterhalb des Mauszeigers positionieren
+                // Position tooltip centered below the mouse pointer
                 const tooltipNode = tooltip.node();
-                // Temporär sichtbar machen, um Breite zu messen
+                // Temporarily make visible to measure width
                 tooltip.style("opacity", 0).style("display", "block");
                 const tooltipWidth = tooltipNode.offsetWidth;
-                tooltip.style("display", null); // zurücksetzen
+                tooltip.style("display", null); // reset
 
                 tooltip
                     .style("left", (event.pageX - tooltipWidth / 2) + "px")
@@ -245,9 +244,9 @@ export class SystemVisualizer extends EventEmitter {
             .on("click", (event, data) => {
                 this.emit('dependencyClick', { event, data });
                 event.stopPropagation();
-            });;
+            });
 
-        // Knoten erstellen
+        // Create nodes
         const nodeGroup = g.append("g")
             .attr("class", "nodes");
 
@@ -258,7 +257,7 @@ export class SystemVisualizer extends EventEmitter {
                 const classes = ["node"];
                 if (!d.knownUsage) classes.push("unknown-usage");
 
-                // Mehrere Gruppen-Klassen hinzufügen
+                // Add multiple group classes
                 const nodeGroups = this.getNodeGroups(d);
                 nodeGroups.forEach(group => {
                     classes.push(`group-${group}`);
@@ -273,7 +272,7 @@ export class SystemVisualizer extends EventEmitter {
             this.nodeElements.call(this.simulationManager.createDragBehavior())
         }
 
-        // Kreise für die Systeme
+        // Circles for the systems
         const radius = 30;
         this.nodeElements.append("circle")
             .attr("r", radius)
@@ -281,12 +280,12 @@ export class SystemVisualizer extends EventEmitter {
             .attr("stroke", d => {
                 const nodeGroups = this.getNodeGroups(d);
                 if (nodeGroups.length > 0) {
-                    // Bei mehreren Gruppen einen Mehrfarben-Stroke erstellen (könnte z.B. gestrichelt sein)
+                    // For multiple groups, create a multi-color stroke (could be dashed)
                     return nodeGroups.length > 1 ?
-                        "url(#multigroup-gradient-" + d.id + ")" : // ID für Gradient
-                        this.groupColorScale(nodeGroups[0]); // Einzelne Gruppe
+                        "url(#multigroup-gradient-" + d.id + ")" : // ID for gradient
+                        this.groupColorScale(nodeGroups[0]); // Single group
                 }
-                return "#fff"; // Standard ohne Gruppe
+                return "#fff"; // Default without group
             })
             .attr("stroke-width", d => this.getNodeGroups(d).length > 0 ? 3 : 2)
             .attr("stroke-dasharray", d => this.getNodeGroups(d).length > 1 ? "5,3" : null)
@@ -298,23 +297,23 @@ export class SystemVisualizer extends EventEmitter {
                 tooltip.html(`
                     <strong>${d.name}</strong><br>
                     ${d.description}<br>
-                    ${d.group ? '<span class="badge bg-info">Gruppe: ' + d.group + '</span>' : ''}
+                    ${d.group ? '<span class="badge bg-info">Group: ' + d.group + '</span>' : ''}
                 `);
 
-                // Temporär sichtbar machen, um Breite und Höhe zu messen
+                // Temporarily make visible to measure width and height
                 tooltip.style("opacity", 0).style("display", "block");
                 const tooltipNode = tooltip.node();
                 const tooltipWidth = tooltipNode.offsetWidth;
-                tooltip.style("display", null); // zurücksetzen
+                tooltip.style("display", null); // reset
 
-                // Höhe des Kreises bestimmen (SVG-Kreis hat r=30)
+                // Determine height of the circle (SVG circle has r=30)
                 const circleRadius = radius;
-                // Optional: Falls der Kreisradius dynamisch ist, könnte man ihn so ermitteln:
+                // Optionally: If the circle radius is dynamic, you could get it like this:
                 // const circleRadius = d3.select(this).attr("r");
 
                 tooltip
                     .style("left", (event.pageX - tooltipWidth / 2) + "px")
-                    .style("top", (event.pageY + Number(circleRadius) + 8) + "px") // 8px Abstand unterhalb des Kreises
+                    .style("top", (event.pageY + Number(circleRadius) + 8) + "px") // 8px below the circle
                     .transition()
                     .duration(200)
                     .style("opacity", .9);
@@ -326,14 +325,14 @@ export class SystemVisualizer extends EventEmitter {
             })
             .on("click", (event, d) => this.showSystemDetails(d));
 
-        // Text-Labels
+        // Text labels
         this.nodeElements.append("text")
             .attr("dy", -40)
             .attr("text-anchor", "middle")
             .text(d => d.name)
             .attr("fill", "#333");
 
-        // Gruppen-Labels hinzufügen
+        // Add group labels
         this.groupLabels = g.append("g")
             .attr("class", "group-labels")
             .selectAll(".group-label")
@@ -346,16 +345,16 @@ export class SystemVisualizer extends EventEmitter {
             .style("fill", d => d3.rgb(this.groupColorScale(d[0])).darker(2))
             .style("pointer-events", "none")
             .text(d => {
-                // Anzeige für zusammengeführte Gruppen
+                // Display for merged groups
                 if (d[1].allGroups && d[1].allGroups.length > 1) {
                     return `${d[0]} (+${d[1].allGroups.length - 1})`;
                 }
                 return d[0];
             });
-        this.groupLabels.append("title") // Tooltip für Details
+        this.groupLabels.append("title") // Tooltip for details
             .text(d => {
                 if (d[1].allGroups && d[1].allGroups.length > 1) {
-                    return `Zusammengeführte Gruppen:\n${d[1].allGroups.join('\n')}`;
+                    return `Merged groups:\n${d[1].allGroups.join('\n')}`;
                 }
                 return d[0];
             });
@@ -371,7 +370,7 @@ export class SystemVisualizer extends EventEmitter {
                     .attr("x2", "100%")
                     .attr("y2", "100%");
 
-                // Farbstopps für jede Gruppe hinzufügen
+                // Add color stops for each group
                 nodeGroups.forEach((group, i) => {
                     gradient.append("stop")
                         .attr("offset", (i / (nodeGroups.length - 1) * 100) + "%")
@@ -380,45 +379,45 @@ export class SystemVisualizer extends EventEmitter {
             }
         });
 
-        // Simulation starten
+        // Start simulation
         this.simulationManager.initialize(nodes, links, groups);
     }
 
     /**
-    * Gibt gefilterte Links basierend auf den gefilterten Knoten zurück
+    * Returns filtered links based on the filtered nodes
     */
     getFilteredLinks(nodes) {
         const nodeIds = nodes.map(node => node.id);
 
-        // Verbindungszähler initialisieren
+        // Initialize link counters
         const linkCounts = {};
 
-        // Erste Filterung der Links
+        // First filter the links
         const filteredLinks = this.data.dependencies.filter(dep => {
             return nodeIds.includes(dep.source) && nodeIds.includes(dep.target);
         });
 
-        // Links zählen und indizieren
+        // Count and index links
         filteredLinks.forEach(dep => {
             const key = `${dep.source}-${dep.target}`;
             const reverseKey = `${dep.target}-${dep.source}`;
 
-            // Zähler für diese Richtung initialisieren
+            // Initialize counter for this direction
             if (!linkCounts[key]) {
                 linkCounts[key] = 0;
             }
 
-            // Zähler erhöhen und dem Link zuweisen
+            // Increment counter and assign to link
             linkCounts[key]++;
-            dep.linkIndex = linkCounts[key] - 1; // 0-basierter Index
+            dep.linkIndex = linkCounts[key] - 1; // 0-based index
 
-            // Gesamtzahl der Links in dieser Richtung speichern
+            // Store total number of links in this direction
             dep.totalLinks = filteredLinks.filter(d =>
                 (d.source === dep.source && d.target === dep.target)
             ).length;
         });
 
-        // Links mit zusätzlichen Informationen zurückgeben
+        // Return links with additional information
         return filteredLinks.map(dep => ({
             source: dep.source,
             target: dep.target,
@@ -429,70 +428,70 @@ export class SystemVisualizer extends EventEmitter {
     }
 
     /**
-     * Wird bei jedem Simulation-Tick aufgerufen
+     * Called on every simulation tick
      */
     onSimulationTick() {
         if (!this.linkElements || !this.nodeElements || !this.groupHulls || !this.groupLabels) {
             return;
         }
 
-        // Links aktualisieren
+        // Update links
         this.linkElements.attr("d", this.linkArc);
 
-        // Knoten aktualisieren
+        // Update nodes
         this.nodeElements.attr("transform", d => `translate(${d.x},${d.y})`);
 
-        // Gruppierungshüllen aktualisieren
+        // Update group hulls
         this.groupHulls.attr("d", d => {
             const groupName = d[0];
             const simulation = this.simulationManager.simulation;
 
-            // Alle Knoten finden, die zu dieser Gruppe gehören
-            // WICHTIGER UNTERSCHIED: Wir prüfen jetzt, ob ein Knoten zu EINER der ursprünglichen Gruppen gehört
+            // Find all nodes that belong to this group
+            // IMPORTANT DIFFERENCE: Now we check if a node belongs to ANY of the original groups
             const groupNodes = simulation.nodes().filter(n => {
                 const nodeGroups = this.getNodeGroups(n);
 
-                // Prüfe, ob der Knoten zu einer der ursprünglichen Gruppen gehört,
-                // die auf diese Repräsentanten-Gruppe abgebildet wurden
+                // Check if the node belongs to any of the original groups
+                // that were mapped to this representative group
                 if (d[1].allGroups) {
-                    // Für eine zusammengeführte Gruppe prüfen, ob der Knoten zu einer der ursprünglichen Gruppen gehört
+                    // For a merged group, check if the node belongs to any of the original groups
                     return nodeGroups.some(ng => d[1].allGroups.includes(ng));
                 } else {
-                    // Für eine einzelne Gruppe normal prüfen
+                    // For a single group, check normally
                     return nodeGroups.includes(groupName);
                 }
             });
 
-            // Wenn keine oder nur ein Knoten, zeichne einen kleinen Kreis um diesen
+            // If no nodes or only one node, draw a small circle around it
             if (groupNodes.length === 0) {
-                return ""; // Keine Hülle, wenn keine Knoten
+                return ""; // No hull if no nodes
             }
 
             if (groupNodes.length === 1) {
-                // Bei nur einem Knoten: zeichne Kreis um diesen
+                // For only one node: draw a circle around it
                 const node = groupNodes[0];
                 return `M${node.x + 60},${node.y} 
                     A60,60 0 1,1 ${node.x - 60},${node.y} 
                     A60,60 0 1,1 ${node.x + 60},${node.y}`;
             }
 
-            // Zentroid der Gruppe berechnen
+            // Calculate centroid of the group
             const points = groupNodes.map(n => [n.x, n.y]);
             const centroid = this.getCentroid(points);
 
-            // Radius berechnen (mit zusätzlichem Padding)
+            // Calculate radius (with extra padding)
             const maxDist = Math.max(40, this.getMaxDistanceFromCentroid(points, centroid) + 40);
 
-            // Kreisförmige Hülle um die Gruppe zeichnen
+            // Draw a circular hull around the group
             return this.createHullPath(centroid, maxDist, 24);
         });
 
-        // Gruppenbezeichnungen aktualisieren
+        // Update group labels
         this.groupLabels.attr("transform", d => {
             const groupName = d[0];
             const simulation = this.simulationManager.simulation;
 
-            // Die gleiche Filterlogik wie bei den Hüllen verwenden
+            // Use the same filter logic as for the hulls
             const groupNodes = simulation.nodes().filter(n => {
                 const nodeGroups = this.getNodeGroups(n);
 
@@ -513,7 +512,7 @@ export class SystemVisualizer extends EventEmitter {
     }
 
     /**
-     * Richtet Zoom-Funktionalität ein
+     * Sets up zoom functionality
      */
     setupZoom() {
         this.zoom = d3.zoom()
@@ -524,7 +523,7 @@ export class SystemVisualizer extends EventEmitter {
 
         this.svg.call(this.zoom);
 
-        // Reset-Zoom-Button
+        // Reset zoom button
         document.getElementById("reset-zoom").addEventListener("click", () => {
             this.svg.transition().duration(750).call(
                 this.zoom.transform,
@@ -532,115 +531,111 @@ export class SystemVisualizer extends EventEmitter {
             );
         });
 
-        // Nach dem Zoom oder Pan den Zustand speichern
+        // Save viewport state after zoom or pan
         this.zoom.on('end', () => {
             this.saveViewportState();
         });
 
-        // Zustand wiederherstellen
+        // Restore viewport state
         this.restoreViewportState();
     }
 
     /**
- * Optimierte linkArc-Funktion mit angepasster Verteilung für gerade Anzahl von Links
- */
+     * Optimized linkArc function with adjusted distribution for even number of links
+     */
     linkArc(d) {
-        // Knotenradius
+        // Node radius
         const nodeRadius = 32;
 
-        // Extrahiere Quell- und Zielkoordinaten
+        // Extract source and target coordinates
         const sourceX = d.source.x;
         const sourceY = d.source.y;
         const targetX = d.target.x;
         const targetY = d.target.y;
 
-        // Berechne Abstand und Basiswinkel zwischen den Knoten
+        // Calculate distance and base angle between nodes
         const dx = targetX - sourceX;
         const dy = targetY - sourceY;
         const distance = Math.sqrt(dx * dx + dy * dy);
         const baseAngle = Math.atan2(dy, dx);
 
-        // Bestimmung der Winkelversätze
+        // Determine angle offsets
         const totalLinks = d.totalLinks || 1;
         const linkIndex = d.linkIndex || 0;
 
-        // Maximaler Winkelversatz in Grad (±15°), in Radiant umgerechnet
+        // Maximum angle offset in degrees (±15°), converted to radians
         const maxOffsetDegrees = 15;
         const maxOffset = (maxOffsetDegrees * Math.PI) / 180;
 
-        // Winkelversatz berechnen - mit Anpassung für gerade Anzahl von Links
+        // Calculate angle offset - with adjustment for even number of links
         let angleOffset = 0;
 
         if (totalLinks > 1) {
             if (totalLinks % 2 === 0) {
-                // Bei gerader Anzahl: Verschiebung, um die Mitte zu vermeiden
-                // z.B. bei 4 Links: -0.75, -0.25, +0.25, +0.75 statt -1, -0.33, +0.33, +1
+                // For even number: shift to avoid the center
+                // e.g. for 4 links: -0.75, -0.25, +0.25, +0.75 instead of -1, -0.33, +0.33, +1
                 const step = 1 / totalLinks;
                 angleOffset = ((linkIndex / (totalLinks - 1)) * 2 - 1 + step) * maxOffset;
             } else {
-                // Bei ungerader Anzahl: normale Verteilung
+                // For odd number: normal distribution
                 angleOffset = ((linkIndex / (totalLinks - 1)) * 2 - 1) * maxOffset;
             }
         }
 
-        // Startpunkt auf dem Quellknoten
+        // Start point on the source node
         const startAngle = baseAngle + angleOffset;
         const startX = sourceX + Math.cos(startAngle) * nodeRadius;
         const startY = sourceY + Math.sin(startAngle) * nodeRadius;
 
-        // Endpunkt auf dem Zielknoten mit gespiegeltem Winkelversatz
+        // End point on the target node with mirrored angle offset
         const endAngle = baseAngle + Math.PI - angleOffset;
         const endX = targetX + Math.cos(endAngle) * nodeRadius;
         const endY = targetY + Math.sin(endAngle) * nodeRadius;
 
-        // Minimaler Winkelversatz für die Krümmung (selbst bei einzelnen Links)
-        // Einzelne Links bekommen eine leichte Kurve statt einer geraden Linie
-        const minCurvatureAngle = (3 * Math.PI) / 180;  // 3 Grad in Radiant
+        // Minimal angle offset for curvature (even for single links)
+        // Single links get a slight curve instead of a straight line
+        const minCurvatureAngle = (3 * Math.PI) / 180;  // 3 degrees in radians
 
-        // Effektiver Winkelversatz für die Krümmungsberechnung
+        // Effective angle offset for curvature calculation
         const effectiveAngleOffset = Math.max(Math.abs(angleOffset), minCurvatureAngle);
 
-        // Bogenrichtung basierend auf dem Vorzeichen des Winkelversatzes
-        // Bei einzelnen Links: standardmäßig im Uhrzeigersinn
+        // Arc direction based on the sign of the angle offset
+        // For single links: default to clockwise
         const sweep = (totalLinks === 1 || angleOffset >= 0) ? 1 : 0;
 
-        // Krümmungsfaktor basierend auf Winkelversatz und Distanz
-        // Minimal 0.15 für leichte Kurve, maximal 0.5 für starke Kurve
+        // Curvature factor based on angle offset and distance
+        // Minimum 0.15 for slight curve, maximum 0.5 for strong curve
         let curvature = 0.15 + (effectiveAngleOffset / maxOffset) * 0.35;
 
-        // Orthogonale Richtungsvektoren für den Kontrollpunkt
+        // Orthogonal direction vectors for the control point
         const tangentX = (endX - startX) / distance;
         const tangentY = (endY - startY) / distance;
         const perpX = -tangentY;
         const perpY = tangentX;
 
-        // Mittelpunkt berechnen
+        // Calculate midpoint
         const midX = (startX + endX) / 2;
         const midY = (startY + endY) / 2;
 
-        // Kontrollpunkt mit Richtung basierend auf sweep
+        // Control point with direction based on sweep
         const ctrlFactor = (sweep === 1 ? 1 : -1) * curvature * distance;
         const ctrlX = midX + perpX * ctrlFactor;
         const ctrlY = midY + perpY * ctrlFactor;
 
-        // Quadratische Bézierkurve
+        // Quadratic Bézier curve
         return `M${startX},${startY}Q${ctrlX},${ctrlY} ${endX},${endY}`;
     }
 
     /**
-     * Identifiziert alle Gruppen und bereitet sie für d3.js vor
-     * Optimiert, um Gruppen mit identischen Knoten zusammenzuführen
+     * Identifies all groups and prepares them for d3.js
+     * Optimized to merge groups with identical nodes
      */
-    /**
- * Erweiterte identifyGroups Methode, die sowohl Zusammenführung durchführt
- * als auch bidirektionale Zuordnungen zwischen Gruppen speichert
- */
     identifyGroups(nodes) {
-        // Schritt 1: Initiale Gruppierung erstellen
+        // Step 1: Create initial grouping
         const initialGroupMap = {};
         const UNGROUPED_GROUP_NAME = "ungrouped";
 
-        // Datenstruktur für Gruppe -> Zugehörige Knoten
+        // Data structure: group -> associated nodes
         nodes.forEach(node => {
             const nodeGroups = this.getNodeGroups(node);
 
@@ -671,13 +666,13 @@ export class SystemVisualizer extends EventEmitter {
             }
         });
 
-        // Schritt 2: Gruppen mit identischen Knoten identifizieren
-        const groupSignatures = {};  // Signatur -> Gruppen mit dieser Signatur
+        // Step 2: Identify groups with identical nodes
+        const groupSignatures = {};  // Signature -> groups with this signature
 
         Object.entries(initialGroupMap).forEach(([groupName, groupData]) => {
             if (groupName === UNGROUPED_GROUP_NAME) return;
 
-            // Erstelle eine eindeutige Signatur basierend auf den Knoten-IDs
+            // Create a unique signature based on node IDs
             const signature = Array.from(groupData.nodeIds).sort().join(',');
 
             if (!groupSignatures[signature]) {
@@ -687,44 +682,44 @@ export class SystemVisualizer extends EventEmitter {
             groupSignatures[signature].push(groupName);
         });
 
-        // Schritt 3: Finale Gruppenkarte erstellen
+        // Step 3: Create final group map
         const finalGroupMap = {};
 
-        // Mapping von ursprünglichen Gruppen zu repräsentativen Gruppen
-        // WICHTIG: Wir speichern dies als globale/Klasseninstanz-Variable
+        // Mapping from original groups to representative groups
+        // IMPORTANT: We store this as a global/class instance variable
         this.groupMap = {};
 
-        // Zuerst die ungrouped-Gruppe hinzufügen, falls vorhanden
+        // First add the ungrouped group if present
         if (initialGroupMap[UNGROUPED_GROUP_NAME]) {
             finalGroupMap[UNGROUPED_GROUP_NAME] = initialGroupMap[UNGROUPED_GROUP_NAME];
         }
 
-        // Dann die zusammengeführten Gruppen
+        // Then the merged groups
         Object.entries(groupSignatures).forEach(([signature, groups]) => {
-            // Die erste Gruppe als repräsentative Gruppe verwenden
+            // Use the first group as the representative group
             const primaryGroup = groups[0];
 
-            // Gruppe in die finale Karte übernehmen
+            // Add group to the final map
             finalGroupMap[primaryGroup] = initialGroupMap[primaryGroup];
 
-            // Speichere alle ursprünglichen Gruppen als Metadaten
+            // Store all original groups as metadata
             if (groups.length > 1) {
                 finalGroupMap[primaryGroup].allGroups = groups;
                 console.log(`Merged identical groups: ${groups.join(', ')} -> ${primaryGroup}`);
 
-                // Bidirektionale Zuordnung erstellen
+                // Create bidirectional mapping
                 groups.forEach(originalGroup => {
                     this.groupMap[originalGroup] = primaryGroup;
                 });
             } else {
-                // Auch für Einzelgruppen die Zuordnung erstellen
+                // Also create mapping for single groups
                 this.groupMap[primaryGroup] = primaryGroup;
             }
         });
 
-        // Schritt 4: Initiale Positionen berechnen
+        // Step 4: Calculate initial positions
         Object.entries(finalGroupMap).forEach(([groupName, group], index) => {
-            // Positionen gleichmäßig um den Mittelpunkt verteilen
+            // Distribute positions evenly around the center
             const angle = (index / Object.keys(finalGroupMap).length) * 2 * Math.PI;
             const radius = Math.min(this.width, this.height) * 0.4;
 
@@ -736,8 +731,8 @@ export class SystemVisualizer extends EventEmitter {
     }
 
     /**
-     * Hilfsfunktion um zu prüfen, ob zwei Arrays die gleichen Elemente enthalten
-     * (Reihenfolge wird ignoriert)
+     * Helper function to check if two arrays contain the same elements
+     * (Order is ignored)
      */
     arraysHaveSameElements(arr1, arr2) {
         if (arr1.length !== arr2.length) return false;
@@ -751,8 +746,8 @@ export class SystemVisualizer extends EventEmitter {
     }
 
     /**
-     * Hilfsfunktion zum Extrahieren aller Gruppen eines Knotens
-     * Berücksichtigt neue groups-Arrays und Legacy group-Felder
+     * Helper function to extract all groups of a node
+     * Supports new groups arrays and legacy group fields
      */
     getNodeGroups(node) {
         if (Array.isArray(node.groups) && node.groups.length > 0) {
@@ -764,7 +759,7 @@ export class SystemVisualizer extends EventEmitter {
     }
 
     /**
-     * Berechnet den Schwerpunkt (Zentroid) einer Gruppe von Punkten
+     * Calculates the centroid of a group of points
      */
     getCentroid(points) {
         const n = points.length;
@@ -777,7 +772,7 @@ export class SystemVisualizer extends EventEmitter {
     }
 
     /**
-     * Berechnet die maximale Distanz vom Zentroid zu einem Punkt der Gruppe
+     * Calculates the maximum distance from the centroid to any point in the group
      */
     getMaxDistanceFromCentroid(points, centroid) {
         if (points.length === 0) return 0;
@@ -788,7 +783,7 @@ export class SystemVisualizer extends EventEmitter {
     }
 
     /**
-     * Erstellt einen Pfad für die Gruppenhülle
+     * Creates a path for the group hull
      */
     createHullPath(center, radius, segments) {
         const angleStep = (2 * Math.PI) / segments;
@@ -805,34 +800,34 @@ export class SystemVisualizer extends EventEmitter {
     }
 
     /**
-     * Gibt den Knoten mit der angegebenen ID aus der aktuellen Simulation zurück
-     * @param {string} systemId - Die ID des zu findenden Systems
-     * @returns {Object|null} Das Knotenobjekt oder null, wenn nicht gefunden
+     * Returns the node with the given ID from the current simulation
+     * @param {string} systemId - The ID of the system to find
+     * @returns {Object|null} The node object or null if not found
      */
     getNodeById(systemId) {
         return this.simulationManager.getNodeById(systemId);
     }
 
     /**
-     * Prüft, ob ein Knoten fixiert ist
-     * @param {string} systemId - Die ID des zu prüfenden Systems
-     * @returns {boolean} True, wenn der Knoten fixiert ist, false sonst oder wenn nicht gefunden
+     * Checks if a node is fixed
+     * @param {string} systemId - The ID of the system to check
+     * @returns {boolean} True if the node is fixed, false otherwise or if not found
      */
     isNodeFixed(systemId) {
         return this.simulationManager.isNodeFixed(systemId);
     }
 
     /**
-     * Schaltet den fixierten Zustand eines Knotens um
-     * @param {string} systemId - Die ID des zu ändernden Systems
-     * @returns {boolean} Der neue Fixierungszustand oder null, wenn der Knoten nicht gefunden wurde
+     * Toggles the fixed state of a node
+     * @param {string} systemId - The ID of the system to change
+     * @returns {boolean} The new fixed state or null if the node was not found
      */
     toggleNodeFixed(systemId) {
         return this.simulationManager.toggleNodeFixed(systemId);
     }
 
     /**
-     * Zeigt die Systemdetails im Overlay an
+     * Displays the system details in the overlay
      */
     showSystemDetails(system) {
         const detailsPanel = document.getElementById('details-panel');
@@ -840,15 +835,15 @@ export class SystemVisualizer extends EventEmitter {
         const detailTitle = document.getElementById('detail-title');
 
         if (!detailsDiv || !detailsPanel || !detailTitle) {
-            console.error('Details-Container nicht gefunden');
+            console.error('Details container not found');
             return;
         }
 
-        // Titel setzen
+        // Set title
         detailTitle.textContent = system.name;
         detailTitle.setAttribute('data-system-id', system.id);
 
-        // Eingehende und ausgehende Abhängigkeiten finden
+        // Find incoming and outgoing dependencies
         const incomingDeps = this.data.dependencies.filter(dep => dep.target === system.id);
         const outgoingDeps = this.data.dependencies.filter(dep => dep.source === system.id);
 
@@ -857,10 +852,10 @@ export class SystemVisualizer extends EventEmitter {
             <p class="mb-1">${system.description}</p>
             <div class="badge bg-${this.getCategoryClass(system.category)} mb-2">${system.category}</div>
             <p><strong>Status:</strong> ${system.status}</p>
-            <p><strong>Bekannte Nutzung:</strong> ${system.knownUsage ? 'Ja' : 'Nein'}</p>
+            <p><strong>Known Usage:</strong> ${system.knownUsage ? 'Yes' : 'No'}</p>
     `;
 
-        // Gruppen-Information hinzufügen - Multi-Gruppen-Unterstützung
+        // Add group information - multi-group support
         const groups = [];
         if (Array.isArray(system.groups) && system.groups.length > 0) {
             groups.push(...system.groups);
@@ -869,7 +864,7 @@ export class SystemVisualizer extends EventEmitter {
         }
 
         if (groups.length > 0) {
-            html += `<p><strong>Gruppen:</strong> ${groups.map(group =>
+            html += `<p><strong>Groups:</strong> ${groups.map(group =>
                 `<span class="badge bg-info">${group}</span>`).join(' ')}</p>`;
         }
 
@@ -879,64 +874,64 @@ export class SystemVisualizer extends EventEmitter {
         }
 
         if (incomingDeps.length > 0) {
-            html += `<h6 class="mt-3">Eingehende Verbindungen</h6><ul class="list-group">`;
+            html += `<h6 class="mt-3">Incoming Connections</h6><ul class="list-group">`;
             incomingDeps.forEach(dep => {
                 const source = this.data.systems.find(s => s.id === dep.source);
                 html += `
                 <li class="list-group-item">
                     <div class="d-flex w-100 justify-content-between">
-                        <strong>${source ? source.name : 'Unbekannt'}</strong>
-                        <span class="badge bg-secondary">${dep.protocol || 'Unbekannt'}</span>
+                        <strong>${source ? source.name : 'Unknown'}</strong>
+                        <span class="badge bg-secondary">${dep.protocol || 'Unknown'}</span>
                     </div>
-                    <small>${dep.description || 'Keine Beschreibung'}</small>
+                    <small>${dep.description || 'No description'}</small>
                 </li>`;
             });
             html += `</ul>`;
         }
 
         if (outgoingDeps.length > 0) {
-            html += `<h6 class="mt-3">Ausgehende Verbindungen</h6><ul class="list-group">`;
+            html += `<h6 class="mt-3">Outgoing Connections</h6><ul class="list-group">`;
             outgoingDeps.forEach(dep => {
                 const target = this.data.systems.find(s => s.id === dep.target);
                 html += `
                 <li class="list-group-item">
                     <div class="d-flex w-100 justify-content-between">
-                        <strong>${target ? target.name : 'Unbekannt'}</strong>
-                        <span class="badge bg-secondary">${dep.protocol || 'Unbekannt'}</span>
+                        <strong>${target ? target.name : 'Unknown'}</strong>
+                        <span class="badge bg-secondary">${dep.protocol || 'Unknown'}</span>
                     </div>
-                    <small>${dep.description || 'Keine Beschreibung'}</small>
+                    <small>${dep.description || 'No description'}</small>
                 </li>`;
             });
             html += `</ul>`;
         }
 
         if (incomingDeps.length === 0 && outgoingDeps.length === 0) {
-            html += `<div class="alert alert-warning mt-3">Dieses System hat keine bekannten Verbindungen.</div>`;
+            html += `<div class="alert alert-warning mt-3">This system has no known connections.</div>`;
         }
 
         html += `</div>`;
 
         detailsDiv.innerHTML = html;
 
-        // Details-Panel anzeigen
+        // Show details panel
         detailsPanel.classList.add('active');
 
-        // Button-Zustand anpassen
+        // Adjust button state
         const toggleFixButton = document.querySelector('.toggle-fix-btn');
         const isFixed = this.isNodeFixed(system.id);
         if (toggleFixButton) {
             if (isFixed) {
                 toggleFixButton.classList.add('active');
-                toggleFixButton.title = 'Position freigeben';
+                toggleFixButton.title = 'Release position';
             } else {
                 toggleFixButton.classList.remove('active');
-                toggleFixButton.title = 'Position fixieren';
+                toggleFixButton.title = 'Fix position';
             }
         }
     }
 
     /**
-     * Hilfsfunktion zur Ermittlung der Bootstrap-Farbe für Kategorien
+     * Helper function to determine the Bootstrap color for categories
      */
     getCategoryClass(category) {
         switch (category) {
@@ -950,33 +945,21 @@ export class SystemVisualizer extends EventEmitter {
     }
 
     /**
-     * Zeigt eine Fehlermeldung an
-     */
-    showError(message) {
-        const container = document.getElementById(this.containerId);
-        if (container) {
-            container.innerHTML = `<div class="alert alert-danger m-3">${message}</div>`;
-        } else {
-            console.error(message);
-        }
-    }
-
-    /**
-     * Behandelt Größenänderungen des Fensters
+     * Handles window resize events
      */
     handleResize() {
         const container = document.getElementById(this.containerId);
         if (container && this.svg) {
-            // Neue Größe erfassen
+            // Get new size
             this.width = container.clientWidth;
             this.height = container.clientHeight;
 
-            // SVG-Größe aktualisieren
+            // Update SVG size
             this.svg
                 .attr("width", this.width)
                 .attr("height", this.height);
 
-            // Simulationsmanager über neue Größe informieren
+            // Inform simulation manager about new size
             if (this.simulationManager) {
                 this.simulationManager.updateSize(this.width, this.height);
             }
@@ -984,10 +967,10 @@ export class SystemVisualizer extends EventEmitter {
     }
 
     /**
-     * Fügt Event-Listener für UI-Elemente hinzu
+     * Adds event listeners for UI elements
      */
     attachEventListeners() {
-        // Filter für Systemkategorien
+        // Filter for system categories
         const categoryFilters = document.querySelectorAll('.category-filter');
         if (categoryFilters.length > 0) {
             categoryFilters.forEach(filter => {
@@ -999,7 +982,7 @@ export class SystemVisualizer extends EventEmitter {
             });
         }
 
-        // Filter für Systemstatus
+        // Filter for system status
         const statusFilters = document.querySelectorAll('.status-filter');
         if (statusFilters.length > 0) {
             statusFilters.forEach(filter => {
@@ -1011,7 +994,7 @@ export class SystemVisualizer extends EventEmitter {
             });
         }
 
-        // Filter anwenden
+        // Apply filters
         const applyFiltersButton = document.getElementById('apply-filters');
         if (applyFiltersButton) {
             applyFiltersButton.addEventListener('click', () => {
@@ -1020,7 +1003,7 @@ export class SystemVisualizer extends EventEmitter {
             });
         }
 
-        // Suchfeld
+        // Search field
         const searchInput = document.getElementById('system-search');
         if (searchInput) {
             searchInput.addEventListener('input', () => this.performSearch(searchInput.value));
@@ -1028,7 +1011,7 @@ export class SystemVisualizer extends EventEmitter {
     }
 
     /**
-     * Wendet Filter auf die Visualisierung an
+     * Applies filters to the visualization
      */
     applyFilters() {
         if (this.svg) {
@@ -1039,16 +1022,16 @@ export class SystemVisualizer extends EventEmitter {
     }
 
     /**
-     * Gibt gefilterte Knoten zurück
+     * Returns filtered nodes
      */
     getFilteredNodes() {
         return this.data.systems.filter(system => {
-            // Kategorie-Filter
+            // Category filter
             if (!this.activeFilters.categories.includes(system.category)) {
                 return false;
             }
 
-            // Status-Filter (bekannte/unbekannte Nutzung)
+            // Status filter (known/unknown usage)
             const usageType = system.knownUsage ? 'known' : 'unknown';
             if (!this.activeFilters.knownUsage.includes(usageType)) {
                 return false;
@@ -1059,13 +1042,13 @@ export class SystemVisualizer extends EventEmitter {
     }
 
     /**
-     * Führt eine Suche durch und zeigt die Ergebnisse an
+     * Performs a search and displays the results
      */
     performSearch(query) {
         const resultsContainer = document.getElementById('search-results');
 
         if (!resultsContainer) {
-            console.error('Suchergebnisse-Container nicht gefunden');
+            console.error('Search results container not found');
             return;
         }
 
@@ -1076,19 +1059,19 @@ export class SystemVisualizer extends EventEmitter {
 
         const searchTerm = query.toLowerCase().trim();
 
-        // Systeme durchsuchen
+        // Search systems
         const results = this.data.systems.filter(system => {
             return (
                 system.name.toLowerCase().includes(searchTerm) ||
                 system.description.toLowerCase().includes(searchTerm) ||
                 (system.tags && system.tags.some(tag => tag.toLowerCase().includes(searchTerm))) ||
-                (system.group && system.group.toLowerCase().includes(searchTerm)) // Auch in Gruppen suchen
+                (system.group && system.group.toLowerCase().includes(searchTerm)) // Also search in groups
             );
         });
 
-        // Ergebnisse anzeigen
+        // Display results
         if (results.length === 0) {
-            resultsContainer.innerHTML = '<div class="alert alert-info">Keine Systeme gefunden.</div>';
+            resultsContainer.innerHTML = '<div class="alert alert-info">No systems found.</div>';
         } else {
             let html = '';
 
@@ -1100,14 +1083,14 @@ export class SystemVisualizer extends EventEmitter {
                             <span class="badge bg-${this.getCategoryClass(system.category)}">${system.category}</span>
                         </div>
                         <small>${system.description}</small>
-                        ${system.group ? `<br><small><span class="badge bg-info">Gruppe: ${system.group}</span></small>` : ''}
+                        ${system.group ? `<br><small><span class="badge bg-info">Group: ${system.group}</span></small>` : ''}
                     </button>
                 `;
             });
 
             resultsContainer.innerHTML = html;
 
-            // Event-Listener für Klicks auf Suchergebnisse
+            // Event listeners for clicks on search results
             const resultItems = resultsContainer.querySelectorAll('.list-group-item');
             resultItems.forEach(item => {
                 item.addEventListener('click', () => {
@@ -1123,7 +1106,13 @@ export class SystemVisualizer extends EventEmitter {
         }
     }
 
-    // Methode zum Speichern des aktuellen Viewports
+    
+    /**
+     * Saves the current viewport's zoom and pan state to localStorage.
+     * The state includes the x and y translation, as well as the zoom scale (k),
+     * and is stored under the key 'system_visualizer_transform'.
+     * Requires the presence of an SVG element and d3.zoomTransform.
+     */
     saveViewportState() {
         if (this.svg) {
             const currentTransform = d3.zoomTransform(this.svg.node());
@@ -1135,7 +1124,14 @@ export class SystemVisualizer extends EventEmitter {
         }
     }
 
-    // Methode zum Wiederherstellen des Viewports
+    
+    /**
+     * Restores the viewport state of the SVG element by retrieving the last saved
+     * zoom and pan transform from localStorage and applying it using D3's zoom behavior.
+     * If the stored transform is not available or an error occurs, a warning is logged.
+     *
+     * @returns {void}
+     */
     restoreViewportState() {
         try {
             const storedTransform = localStorage.getItem('system_visualizer_transform');
@@ -1150,7 +1146,7 @@ export class SystemVisualizer extends EventEmitter {
     }
 
     /**
-     * Deaktiviert die Drag-Funktion für Knoten
+     * Disables the drag functionality for nodes
      */
     disableDrag() {
         if (this.nodeElements) {
@@ -1160,7 +1156,7 @@ export class SystemVisualizer extends EventEmitter {
     }
 
     /**
-     * Aktiviert die Drag-Funktion für Knoten wieder
+     * Enables the drag functionality for nodes again
      */
     enableDrag() {
         if (this.nodeElements && this.simulationManager) {

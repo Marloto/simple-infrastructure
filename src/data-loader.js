@@ -12,17 +12,17 @@ import { showNotification } from './utilities.js';
  * @returns {void}
  */
 export function uploadSystemData(dataManager) {
-    // Erstelle ein verstecktes Datei-Input-Element
+    // Create a hidden file input element
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
     fileInput.accept = '.yaml,.yml';
     fileInput.style.display = 'none';
     document.body.appendChild(fileInput);
     
-    // Klick auf das versteckte Input-Element simulieren
+    // Simulate a click on the hidden input element
     fileInput.click();
     
-    // Event-Listener für die Dateiauswahl
+    // Event listener for file selection
     fileInput.addEventListener('change', function(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -33,47 +33,47 @@ export function uploadSystemData(dataManager) {
                 const yamlContent = e.target.result;
                 const parsedData = jsyaml.load(yamlContent);
                 
-                // Validiere die Datenstruktur
+                // Validate the data structure
                 if (!validateSystemData(parsedData)) {
-                    showNotification('Ungültiges Datenformat', 'danger');
+                    showNotification('Invalid data format', 'danger');
                     return;
                 }
                 
-                // Daten im DataManager aktualisieren
+                // Update data in DataManager
                 dataManager.setData(parsedData);
                 
-                showNotification('Daten erfolgreich geladen', 'success');
+                showNotification('Data loaded successfully', 'success');
             } catch (error) {
-                console.error('Fehler beim Parsen der YAML-Datei:', error);
-                showNotification('Ungültiges YAML-Format', 'danger');
+                console.error('Error parsing the YAML file:', error);
+                showNotification('Invalid YAML format', 'danger');
             }
         };
         
         reader.readAsText(file);
         
-        // Entferne das temporäre Input-Element
+        // Remove the temporary input element
         document.body.removeChild(fileInput);
     });
 }
 
 /**
- * Validiert die hochgeladene Datenstruktur
- * @param {Object} data - Die zu validierende Datenstruktur
- * @returns {boolean} True, wenn die Daten valide sind
+ * Validates the uploaded data structure
+ * @param {Object} data - The data structure to validate
+ * @returns {boolean} True if the data is valid
  */
 export function validateSystemData(data) {
-    // Überprüfe, ob die Grundstruktur vorhanden ist
+    // Check if the basic structure exists
     if (!data || !Array.isArray(data.systems) || !Array.isArray(data.dependencies)) {
         return false;
     }
     
-    // Überprüfe, ob alle Systeme eine ID haben
+    // Check if all systems have an ID
     const allSystemsHaveId = data.systems.every(system => !!system.id);
     if (!allSystemsHaveId) {
         return false;
     }
     
-    // Überprüfe, ob alle Abhängigkeiten gültige source und target haben
+    // Check if all dependencies have valid source and target
     const allDependenciesValid = data.dependencies.every(dep => 
         !!dep.source && !!dep.target && 
         data.systems.some(sys => sys.id === dep.source) && 
@@ -84,39 +84,39 @@ export function validateSystemData(data) {
 }
 
 /**
- * Lädt die aktuellen Systemdaten als YAML-Datei herunter
+ * Downloads the current system data as a YAML file
  */
 export function downloadSystemData(dataManager) {
     const currentData = dataManager.getData();
     
     if (!currentData || !currentData.systems || currentData.systems.length === 0) {
-        showNotification('Keine Daten zum Herunterladen verfügbar', 'warning');
+        showNotification('No data available for download', 'warning');
         return;
     }
     
     try {
-        // Konvertiere das JS-Objekt zu YAML
+        // Convert the JS object to YAML
         const yamlString = jsyaml.dump(currentData);
         
-        // Erstelle einen Blob und einen Download-Link
+        // Create a Blob and a download link
         const blob = new Blob([yamlString], { type: 'application/x-yaml' });
         const url = URL.createObjectURL(blob);
         
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'systems_export.yaml';
+        a.download = 'systems.yaml';
         document.body.appendChild(a);
         a.click();
         
-        // Räume auf
+        // Clean up
         setTimeout(() => {
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
         }, 100);
         
-        showNotification('Daten erfolgreich heruntergeladen', 'success');
+        showNotification('Data downloaded successfully', 'success');
     } catch (error) {
-        console.error('Fehler beim Herunterladen der Daten:', error);
-        showNotification('Fehler beim Herunterladen', 'danger');
+        console.error('Error downloading the data:', error);
+        showNotification('Error during download', 'danger');
     }
 }
