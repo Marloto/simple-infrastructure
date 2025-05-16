@@ -3,7 +3,7 @@ import { SystemVisualizer } from './visualizer.js';
 import { DependencyManager } from './dependency-manager.js';
 import { SystemManager } from './system-manager.js';
 import { LlmIntegrationManager } from './llm-integration-manager.js';
-import { downloadSystemData, uploadSystemData } from './data-loader.js';
+import { downloadSystemData, uploadSystemData, downloadVisualizationAsSVG, downloadVisualizationAsPNG } from './data-loader.js';
 import { showNotification, retrieveAndDecrypt, encryptAndStore } from './utilities.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -527,4 +527,88 @@ function setupLlmChatInterface(llmManager) {
         chatMessages.scrollTop = chatMessages.scrollHeight;
         return messageElement;
     }
+
+    function setupImageExport() {
+        const downloadButton = document.getElementById('download-image');
+
+        if (!downloadButton) {
+            console.warn('Download image button not found');
+            return;
+        }
+
+        // Track whether the dropup is currently visible
+        let dropupVisible = false;
+        let dropupMenu = null;
+
+        // Event listener for the button
+        downloadButton.addEventListener('click', function (event) {
+            event.stopPropagation();
+
+            // If the menu is already shown, remove it
+            if (dropupVisible && dropupMenu) {
+                document.body.removeChild(dropupMenu);
+                dropupVisible = false;
+                return;
+            }
+
+            // Create a dropdown menu below the button
+            dropupMenu = document.createElement('div');
+            dropupMenu.className = 'dropdown-menu show';
+            dropupMenu.style.position = 'absolute';
+
+            // Calculate position (below the button as a dropdown)
+            const buttonRect = downloadButton.getBoundingClientRect();
+            dropupMenu.style.top = (buttonRect.bottom + 5) + 'px'; // 5px gap to the button
+            dropupMenu.style.left = buttonRect.left + 'px';
+            dropupMenu.style.minWidth = '140px';
+            dropupMenu.style.backgroundColor = '#fff';
+            dropupMenu.style.border = '1px solid rgba(0,0,0,.15)';
+            dropupMenu.style.borderRadius = '.25rem';
+            dropupMenu.style.padding = '.5rem 0';
+            dropupMenu.style.zIndex = '1000';
+            dropupMenu.style.boxShadow = '0 0.5rem 1rem rgba(0, 0, 0, 0.15)';
+
+            // Add menu items
+            dropupMenu.innerHTML = `
+            <a class="dropdown-item px-3 py-2" href="#" id="download-svg">
+                <i class="bi bi-filetype-svg me-2"></i>As SVG
+            </a>
+            <a class="dropdown-item px-3 py-2" href="#" id="download-png">
+                <i class="bi bi-filetype-png me-2"></i>As PNG
+            </a>
+        `;
+
+            // Add to body
+            document.body.appendChild(dropupMenu);
+            dropupVisible = true;
+
+            // Event listeners for menu items
+            document.getElementById('download-svg').addEventListener('click', function (e) {
+                e.preventDefault();
+                downloadVisualizationAsSVG();
+                document.body.removeChild(dropupMenu);
+                dropupVisible = false;
+            });
+
+            document.getElementById('download-png').addEventListener('click', function (e) {
+                e.preventDefault();
+                downloadVisualizationAsPNG();
+                document.body.removeChild(dropupMenu);
+                dropupVisible = false;
+            });
+
+            // Clicking outside the menu closes it
+            document.addEventListener('click', function closeDropup(e) {
+                if (dropupVisible && !dropupMenu.contains(e.target) && e.target !== downloadButton) {
+                    document.body.removeChild(dropupMenu);
+                    dropupVisible = false;
+                    document.removeEventListener('click', closeDropup);
+                }
+            });
+        });
+
+        console.log('Image export functionality has been added');
+    }
+
+    setupImageExport();
 }
