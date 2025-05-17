@@ -56,7 +56,7 @@ export class SimulationManager extends EventEmitter {
      * @returns {null|undefined} Returns null if the node is not found; otherwise, returns undefined.
      */
     toggleNodeFixed(systemId, curNode = undefined) {
-        const node = curNode && this.getNodeById(systemId);
+        const node = curNode || this.getNodeById(systemId);
         if (!node) return null;
         const isFixed = this.isNodeFixed(systemId, node);
         const newState = !isFixed;

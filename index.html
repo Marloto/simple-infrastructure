@@ -215,34 +215,34 @@
                 <!-- System details will be inserted here -->
             </div>
         </div>
-    </div>
-
-    <div id="llm-chat-container" class="llm-chat-container active" style="display: flex;">
-        <div class="llm-chat-header align-items-center justify-content-between">
-            <h5>Infrastructure Assistant</h5>
-            <div class="d-flex align-items-center">
-                <button class="btn btn-sm p-0 me-2" id="llm-chat-settings" title="Settings">
-                    <i class="bi bi-gear fs-5"></i>
-                </button>
-                <button type="button" class="btn-close" id="llm-chat-close" aria-label="Close"></button>
+        <div id="llm-chat-container" class="llm-chat-container active" style="display: flex;">
+            <div class="llm-chat-header align-items-center justify-content-between">
+                <h5>Infrastructure Assistant</h5>
+                <div class="d-flex align-items-center">
+                    <button class="btn btn-sm p-0 me-2" id="llm-chat-settings" title="Settings">
+                        <i class="bi bi-gear fs-5"></i>
+                    </button>
+                    <button type="button" class="btn-close" id="llm-chat-close" aria-label="Close"></button>
+                </div>
             </div>
-        </div>
-        <div class="llm-chat-messages" id="llm-chat-messages">
-            <!-- Chat messages will be inserted here -->
-        </div>
-        <div class="llm-chat-input-container">
-            <textarea id="llm-chat-input" class="llm-chat-input"
-                placeholder="Describe changes to the infrastructure..." rows="1"></textarea>
-            <button id="llm-chat-send" class="llm-chat-send btn btn-primary">
-                <i class="bi bi-send"></i>
-            </button>
-            <div class="llm-chat-loading" id="llm-chat-loading">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Processing...</span>
+            <div class="llm-chat-messages" id="llm-chat-messages">
+                <!-- Chat messages will be inserted here -->
+            </div>
+            <div class="llm-chat-input-container">
+                <textarea id="llm-chat-input" class="llm-chat-input"
+                    placeholder="Describe changes to the infrastructure..." rows="1"></textarea>
+                <button id="llm-chat-send" class="llm-chat-send btn btn-primary">
+                    <i class="bi bi-send"></i>
+                </button>
+                <div class="llm-chat-loading" id="llm-chat-loading">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Processing...</span>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
+
 
     <!-- Modal for adding/editing system -->
     <div class="modal fade" id="system-modal" tabindex="-1" aria-labelledby="system-modal-label" aria-hidden="true">
