@@ -239,6 +239,13 @@ function setupLlmChatInterface(llmManager) {
     const toggleLlmChat = document.getElementById('toggle-llm-chat');
     const saveLlmConfig = document.getElementById('save-llm-config');
     const cancelLlmConfig = document.getElementById('cancel-llm-config');
+    const llmUrlContainer = document.getElementById('llm-url-container');
+    const llmUrlElement = document.getElementById('llm-url');
+    const llmTypeElement = document.getElementById('llm-type');
+    const llmApiKeyElement = document.getElementById('llm-type');
+    const llmModelElement = document.getElementById('llm-model');
+    const llmSystemPromptElement = document.getElementById('llm-system-prompt');
+    const llmPromptPrefixElement = document.getElementById('llm-prompt-prefix');
 
     function isVisible() {
         return !chatContainer.classList.contains('active');
@@ -255,11 +262,12 @@ function setupLlmChatInterface(llmManager) {
     const configModal = new bootstrap.Modal(document.getElementById('llm-config-modal'));
     function changeLlmConfig() {
         // Felder mit gespeicherter Konfiguration befüllen
-        document.getElementById('llm-type').value = localStorage.getItem("llmType") || "claude";
-        document.getElementById('llm-api-key').value = localStorage.getItem("llmApiKey") ? hiddenKeyIfNotEmpty : "";
-        document.getElementById('llm-model').value = localStorage.getItem("llmModel") || "";
-        document.getElementById('llm-system-prompt').value = localStorage.getItem("llmSystemPrompt") || llmManager.getDefaultSystemPrompt();
-        document.getElementById('llm-prompt-prefix').value = localStorage.getItem("llmPromptPrefix") || llmManager.getDefaultPromptPrefix();
+        llmTypeElement.value = localStorage.getItem("llmType") || "claude";
+        llmApiKeyElement.value = localStorage.getItem("llmApiKey") ? hiddenKeyIfNotEmpty : "";
+        llmModelElement.value = localStorage.getItem("llmModel") || "";
+        llmSystemPromptElement.value = localStorage.getItem("llmSystemPrompt") || llmManager.getDefaultSystemPrompt();
+        llmPromptPrefixElement.value = localStorage.getItem("llmPromptPrefix") || llmManager.getDefaultPromptPrefix();
+        llmUrlElement.value = localStorage.getItem("llmUrl") || "";
         configModal.show();
     }
 
@@ -286,11 +294,12 @@ function setupLlmChatInterface(llmManager) {
     }
 
     function saveConfig() {
-        const llmType = document.getElementById('llm-type').value;
-        const llmApiKey = document.getElementById('llm-api-key').value;
-        const llmModel = document.getElementById('llm-model').value;
-        const llmSystemPrompt = document.getElementById('llm-system-prompt').value;
-        const llmPromptPrefix = document.getElementById('llm-prompt-prefix').value;
+        const llmType = llmTypeElement.value;
+        const llmApiKey = llmApiKeyElement.value;
+        const llmModel = llmModelElement.value;
+        const llmSystemPrompt = llmSystemPromptElement.value;
+        const llmPromptPrefix = llmPromptPrefixElement.value;
+        const llmUrl = llmUrlElement.value;
 
         // Konfiguration speichern
         localStorage.setItem("llmType", llmType);
@@ -304,7 +313,8 @@ function setupLlmChatInterface(llmManager) {
         localStorage.setItem("llmModel", llmModel);
         localStorage.setItem("llmSystemPrompt", llmSystemPrompt);
         localStorage.setItem("llmPromptPrefix", llmPromptPrefix);
-        llmManager.updateConfig(llmType, llmModel, llmApiKey, llmSystemPrompt, llmPromptPrefix);
+        localStorage.setItem("llmUrl", llmUrlElement);
+        llmManager.updateConfig(llmType, llmModel, llmApiKey, llmSystemPrompt, llmPromptPrefix, llmUrl);
         if (checkIfConfiguratedOrCloseChat()) {
             chatContainer.style.display = 'flex';
             if (isVisible()) {
@@ -325,6 +335,13 @@ function setupLlmChatInterface(llmManager) {
     saveLlmConfig.addEventListener('click', () => {
         saveConfig();
     });
+
+    function toggleLlmUrl() {
+        llmUrlContainer.style.display = llmType.value === 'custom' ? '' : 'none';
+        document.getElementById('llm-url').required = llmType.value === 'custom';
+    }
+    llmType.addEventListener('change', toggleLlmUrl);
+    toggleLlmUrl();
 
     // Chat öffnen/schließen
     function toggleChat() {

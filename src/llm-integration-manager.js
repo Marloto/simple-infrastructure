@@ -33,12 +33,13 @@ export class LlmIntegrationManager {
      * @param {string} [llmSystemPrompt] - Optional system prompt to use; defaults to the class's default if not provided.
      * @param {string} [llmPromptPrefix] - Optional prefix to prepend to prompts; defaults to an empty string if not provided.
      */
-    updateConfig(llmType = undefined, llmModel = undefined, llmApiKey = undefined, llmSystemPrompt = undefined, llmPromptPrefix = undefined) {
+    updateConfig(llmType = undefined, llmModel = undefined, llmApiKey = undefined, llmSystemPrompt = undefined, llmPromptPrefix = undefined, llmUrl = undefined) {
         this.config.llmType = llmType;
         this.config.llmModel = llmModel;
         this.config.apiKey = llmApiKey;
         this.config.systemPrompt = llmSystemPrompt || this.getDefaultSystemPrompt();
         this.config.promptPrefix = llmPromptPrefix || this.getDefaultPromptPrefix();
+        this.config.llmUrl = llmUrl;;
 
         if(this.isConfigurated()) {
             this.createLlmGenerator();
@@ -52,7 +53,7 @@ export class LlmIntegrationManager {
      * @returns {boolean} Returns `true` if all required configuration properties are set; otherwise, `false`.
      */
     isConfigurated() {
-        return this.config.apiKey && this.config.llmType && this.config.llmModel;
+        return this.config.apiKey && this.config.llmType && this.config.llmModel && (this.config.llmType !== "custom" || this.config.llmUrl);
     }
 
     /**

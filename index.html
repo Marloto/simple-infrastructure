@@ -336,6 +336,7 @@
                             <select class="form-select" id="llm-type" required>
                                 <option value="claude">Anthropic Claude</option>
                                 <option value="openai">OpenAI</option>
+                                <option value="custom">Custom</option>
                             </select>
                             <label for="llm-type">LLM Provider</label>
                         </div>
@@ -347,6 +348,10 @@
                         <div class="form-floating mb-3">
                             <input type="text" class="form-control" id="llm-model" required placeholder="Model name">
                             <label for="llm-model">Model name</label>
+                        </div>
+                        <div class="form-floating mb-3" id="llm-url-container" style="display: none;">
+                            <input type="text" class="form-control" id="llm-url" placeholder="URL (Optional)">
+                            <label for="llm-url">Backend URL</label>
                         </div>
                         <div class="accordion" id="llm-advanced-settings">
                             <div class="accordion-item">
