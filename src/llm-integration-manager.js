@@ -631,7 +631,7 @@ Wenn du Änderungen an der Infrastruktur vornehmen sollst, gib die neuen, aktual
 
 {{example}}
 
-Wenn keine Änderungen erforderlich sind, antworte mit normaler Konversation. Gib YAML nur zurück, wenn Infrastrukturänderungen angefordert wurden.
+Wenn keine Änderungen erforderlich sind, antworte mit normaler Konversation. Gib YAML immer im korrekten Markdown-Codeblock zurück.
 `;
         } else {
             return `
@@ -647,7 +647,7 @@ If you are asked to make changes to the infrastructure, return the new, updated,
 
 {{example}}
 
-If no changes are required, respond with a normal conversation. Only return YAML if infrastructure changes are requested.
+If no changes are required, respond with a normal conversation. Always return YAML in a correct Markdown code block.
 `;
         }
     }

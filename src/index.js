@@ -37,7 +37,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         llmModel: localStorage.getItem("llmModel") || "", // Modell je nach LLM-Typ, e.g. claude-3-7-sonnet-20250219
         llmSystemPrompt: localStorage.getItem("llmSystemPrompt") || "", // Modell je nach LLM-Typ, e.g. claude-3-7-sonnet-20250219
         llmPromptPrefix: localStorage.getItem("llmPromptPrefix") || "", // Modell je nach LLM-Typ, e.g. claude-3-7-sonnet-20250219
-        // llmUrl: "https://deine-custom-api-url.com", // Nur für custom-Typ
+        llmUrl: localStorage.getItem("llmUrl") || "", // Nur für custom-Typ
     });
     llmManager.initialize(dataManager);
 
@@ -242,7 +242,7 @@ function setupLlmChatInterface(llmManager) {
     const llmUrlContainer = document.getElementById('llm-url-container');
     const llmUrlElement = document.getElementById('llm-url');
     const llmTypeElement = document.getElementById('llm-type');
-    const llmApiKeyElement = document.getElementById('llm-type');
+    const llmApiKeyElement = document.getElementById('llm-api-key');
     const llmModelElement = document.getElementById('llm-model');
     const llmSystemPromptElement = document.getElementById('llm-system-prompt');
     const llmPromptPrefixElement = document.getElementById('llm-prompt-prefix');
@@ -268,6 +268,7 @@ function setupLlmChatInterface(llmManager) {
         llmSystemPromptElement.value = localStorage.getItem("llmSystemPrompt") || llmManager.getDefaultSystemPrompt();
         llmPromptPrefixElement.value = localStorage.getItem("llmPromptPrefix") || llmManager.getDefaultPromptPrefix();
         llmUrlElement.value = localStorage.getItem("llmUrl") || "";
+        toggleLlmUrl();
         configModal.show();
     }
 
@@ -313,7 +314,7 @@ function setupLlmChatInterface(llmManager) {
         localStorage.setItem("llmModel", llmModel);
         localStorage.setItem("llmSystemPrompt", llmSystemPrompt);
         localStorage.setItem("llmPromptPrefix", llmPromptPrefix);
-        localStorage.setItem("llmUrl", llmUrlElement);
+        localStorage.setItem("llmUrl", llmUrl);
         llmManager.updateConfig(llmType, llmModel, llmApiKey, llmSystemPrompt, llmPromptPrefix, llmUrl);
         if (checkIfConfiguratedOrCloseChat()) {
             chatContainer.style.display = 'flex';
@@ -337,10 +338,10 @@ function setupLlmChatInterface(llmManager) {
     });
 
     function toggleLlmUrl() {
-        llmUrlContainer.style.display = llmType.value === 'custom' ? '' : 'none';
-        document.getElementById('llm-url').required = llmType.value === 'custom';
+        llmUrlContainer.style.display = llmTypeElement.value === 'custom' ? '' : 'none';
+        llmUrlElement.required = llmTypeElement.value === 'custom';
     }
-    llmType.addEventListener('change', toggleLlmUrl);
+    llmTypeElement.addEventListener('change', toggleLlmUrl);
     toggleLlmUrl();
 
     // Chat öffnen/schließen
