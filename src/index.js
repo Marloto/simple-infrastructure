@@ -1,6 +1,7 @@
 import { DataManager } from './data-manager.js';
 import { SystemVisualizer } from './visualizer.js';
 import { DependencyManager } from './dependency-manager.js';
+import { HistoryManager } from './history-manager.js';
 import { SystemManager } from './system-manager.js';
 import { LlmIntegrationManager } from './llm-integration-manager.js';
 import { downloadSystemData, uploadSystemData, downloadVisualizationAsSVG, downloadVisualizationAsPNG } from './data-loader.js';
@@ -10,6 +11,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Systemdaten laden und DataManager initialisieren
     const dataManager = new DataManager();
     console.log('Systemdaten geladen:', dataManager.data);
+
+    const historyManager = new HistoryManager(dataManager);
 
     // Visualizer erstellen und mit DataManager verknüpfen
     const visualizer = new SystemVisualizer('visualization-container', dataManager);
@@ -64,6 +67,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // "System speichern"-Button Event im Modal
     document.getElementById('save-system').addEventListener('click', () => systemManager.saveSystem());
+
+    document.getElementById('undo-btn').addEventListener('click', () => {
+        historyManager.undo();
+    });
+    document.getElementById('redo-btn').addEventListener('click', () => {
+        historyManager.redo();
+    });
 
     // "System speichern"-Button Event im Modal
     document.getElementById('clear-data').addEventListener('click', () => {

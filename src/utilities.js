@@ -35,7 +35,9 @@ export function showNotification(message, type = 'info') {
     setTimeout(() => {
         notification.classList.remove('show');
         setTimeout(() => {
-            notificationContainer.removeChild(notification);
+            if (notificationContainer.contains(notification)) {
+                notificationContainer.removeChild(notification);
+            }
         }, 300);
     }, 5000);
 }
