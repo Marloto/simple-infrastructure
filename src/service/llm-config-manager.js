@@ -1,5 +1,5 @@
-import { retrieveAndDecrypt, encryptAndStore } from './utilities.js';
-export class LlmConfig {
+import { retrieveAndDecrypt, encryptAndStore } from '../utils/utilities.js';
+export class LlmConfigManager {
     get llmType() {
         return localStorage.getItem("llmType") || "claude";
     }

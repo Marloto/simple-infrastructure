@@ -1,5 +1,5 @@
 import { OverlayComponent } from '../base/overlay-component.js';
-import { showNotification } from '../../utilities.js';
+import { showNotification } from '../../utils/utilities.js';
 
 const editSystemModalTemplate = () => `
     <div class="modal fade" id="system-modal" tabindex="-1" aria-labelledby="system-modal-label" aria-hidden="true">

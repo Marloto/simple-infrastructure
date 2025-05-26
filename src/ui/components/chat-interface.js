@@ -1,5 +1,5 @@
 import { UIComponent } from '../base/ui-component.js';
-import { showNotification } from '../../utilities.js';
+import { showNotification } from '../../utils/utilities.js';
 
 const chatUiTemplate = () => `
     <div id="llm-chat-container" class="llm-chat-container active" style="display: flex;">

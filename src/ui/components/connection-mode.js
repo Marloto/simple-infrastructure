@@ -1,7 +1,7 @@
 import { UIComponent } from '../base/ui-component.js';
-import { showNotification } from '../../utilities.js';
+import { showNotification } from '../../utils/utilities.js';
 
-export class DependencyManager extends UIComponent {
+export class ConnectionModeComponent extends UIComponent {
     constructor(selector, dependencies = {}, options = {}) {
         super(selector, dependencies, options);
 

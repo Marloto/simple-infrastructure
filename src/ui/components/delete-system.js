@@ -1,5 +1,5 @@
 import { OverlayComponent } from '../base/overlay-component.js';
-import { showNotification } from '../../utilities.js';
+import { showNotification } from '../../utils/utilities.js';
 
 const deleteSystemModalTemplate = () => `
     <div class="modal fade" tabindex="-1" aria-hidden="true">

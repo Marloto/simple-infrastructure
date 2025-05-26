@@ -1,5 +1,5 @@
 import { UIComponent } from '../base/ui-component.js';
-import { uploadSystemData } from '../../data-loader.js';
+import { uploadSystemData } from '../../utils/data-loader.js';
 
 export class UploadHelper extends UIComponent {
     constructor(selector, dependencies = {}, options = {}) {

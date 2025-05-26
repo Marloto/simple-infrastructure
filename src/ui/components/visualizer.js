@@ -1,6 +1,6 @@
 import { UIComponent } from '../base/ui-component.js';
-import { SimulationManager } from '../../simulation.js';
-import { NodeCache } from '../../node-cache.js';
+import { SimulationManager } from '../utils/simulation.js';
+import { NodeCache } from '../utils/node-cache.js';
 
 /**
  * SystemVisualizer - Visualizes IT systems and their dependencies as an interactive graph

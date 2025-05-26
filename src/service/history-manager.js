@@ -1,5 +1,5 @@
-import { EventEmitter  } from "./event-emitter.js";
-import { showNotification } from './utilities.js';
+import { EventEmitter  } from "../utils/event-emitter.js";
+import { showNotification } from '../utils/utilities.js';
 
 /**
  * HistoryManager 
@@ -41,7 +41,6 @@ export class HistoryManager extends EventEmitter{
         });
 
         this.setupKeyboardShortcuts();
-        console.log('CorrectedHistoryManager initialized');
     }
 
     /**
@@ -137,9 +136,6 @@ export class HistoryManager extends EventEmitter{
         this.isPerformingHistoryOperation = false;
 
         this.emit('historyUpdated');
-        showNotification('Undone', 'info');
-
-        console.log('Undo performed');
         return true;
     }
 
@@ -176,9 +172,6 @@ export class HistoryManager extends EventEmitter{
         this.isPerformingHistoryOperation = false;
 
         this.emit('historyUpdated');
-        showNotification('Redone', 'info');
-
-        console.log('Redo performed');
         return true;
     }
 

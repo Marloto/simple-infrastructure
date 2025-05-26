@@ -1,17 +1,16 @@
-import { DataManager } from './data-manager.js';
-import { SystemVisualizer } from './ui/components/visualizer.js';
-import { HistoryManager } from './history-manager.js';
-import { LlmConfig } from './llm-config.js';
-import { LlmIntegrationManager } from './llm-integration-manager.js';
-import { showNotification } from './utilities.js';
+import { DataManager } from './service/data-manager.js';
+import { HistoryManager } from './service/history-manager.js';
+import { LlmConfigManager } from './service/llm-config-manager.js';
+import { LlmIntegrationManager } from './service/llm-integration-manager.js';
 
+import { SystemVisualizer } from './ui/components/visualizer.js';
 import { ChatConfig } from './ui/components/chat-config.js';
 import { ChatInterface } from './ui/components/chat-interface.js';
 import { ExportImage } from './ui/components/export.js';
 import { EditSystemComponent } from './ui/components/edit-system.js';
 import { DeleteSystemComponent } from './ui/components/delete-system.js';
 import { DeleteDependencyComponent } from './ui/components/delete-dependency.js';
-import { DependencyManager } from './ui/components/dependency-manager.js';
+import { ConnectionModeComponent } from './ui/components/connection-mode.js';
 import { Toolbar } from './ui/components/toolbar.js';
 import { HistoryHelper } from './ui/components/history.js';
 import { SearchOverlay } from './ui/components/search.js';
@@ -32,7 +31,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const historyManager = new HistoryManager(dataManager);
 
     // LLM-Integration initialisieren (NEU)
-    const llmConfig = new LlmConfig();
+    const llmConfig = new LlmConfigManager();
     const llmManager = new LlmIntegrationManager({
         apiKey: (await llmConfig.loadLlmApiKey()) || "", // API-Key aus localStorage
         llmType: llmConfig.llmType || "", // claude, openai, custom
@@ -47,7 +46,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const visualizer = new SystemVisualizer('#visualization-container', {dataManager});
     const toolbar = new Toolbar('.controls-overlay', {});
     const editSystemComponent = new EditSystemComponent('body', { dataManager, toolbar });
-    const dependencyManager = new DependencyManager('body', {
+    const connectionMode = new ConnectionModeComponent('body', {
         dataManager, 
         visualizer, 
         toolbar,
@@ -59,11 +58,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     [
         visualizer,
         editSystemComponent, 
-        dependencyManager, 
+        connectionMode, 
         chatConfig, 
         chatInterface, 
         deleteSystemComponent, 
-        new DeleteDependencyComponent('body', { dataManager, dependencyManager }),
+        new DeleteDependencyComponent('body', { dataManager, connectionMode }),
         new HistoryHelper('body', { historyManager, toolbar }),
         new SearchOverlay('.main-container', { toolbar, visualizer, dataManager }),
         new FilterOverlay('.main-container', { toolbar, visualizer, dataManager }),

@@ -1,5 +1,5 @@
 import { OverlayComponent } from '../base/overlay-component.js';
-import { showNotification } from '../../utilities.js';
+import { showNotification } from '../../utils/utilities.js';
 
 const createDetailsOverlay = () => `
     <div class="details-overlay overlay">

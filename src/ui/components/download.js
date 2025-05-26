@@ -1,5 +1,5 @@
 import { UIComponent } from '../base/ui-component.js';
-import { downloadSystemData } from '../../data-loader.js';
+import { downloadSystemData } from '../../utils/data-loader.js';
 
 export class DownloadHelper extends UIComponent {
     constructor(selector, dependencies = {}, options = {}) {

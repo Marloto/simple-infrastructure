@@ -1,4 +1,4 @@
-import { EventEmitter } from '../../event-emitter.js';
+import { EventEmitter } from '../../utils/event-emitter.js';
 
 export class UIComponent extends EventEmitter {
     constructor(selector, dependencies = {}, options = {}) {

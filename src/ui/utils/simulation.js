@@ -1,4 +1,4 @@
-import { EventEmitter } from "./event-emitter.js";
+import { EventEmitter } from "../../utils/event-emitter.js";
 
 /**
  * SimulationManager - Handles d3 force simulation logic separate from visualization

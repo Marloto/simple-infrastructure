@@ -1,5 +1,5 @@
-import { EventEmitter  } from "./event-emitter.js";
-import { showNotification } from './utilities.js';
+import { EventEmitter  } from "../utils/event-emitter.js";
+import { showNotification } from '../utils/utilities.js';
 
 /**
  * Loads the system data from the YAML file

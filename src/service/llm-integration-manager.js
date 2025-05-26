@@ -1,5 +1,5 @@
-import {createGenerator, handleSse} from './completion.js'
-import { showNotification } from './utilities.js';
+import {createGenerator, handleSse} from '../utils/completion.js'
+import { showNotification } from '../utils/utilities.js';
 
 /**
  * LlmIntegrationManager - Manages the integration of an LLM into the system visualization.
@@ -71,7 +71,6 @@ export class LlmIntegrationManager {
         this.dataManager = dataManager;
 
         this.initialized = true;
-        console.log("LlmIntegrationManager has been initialized");
     }
 
     /**
