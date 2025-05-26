@@ -1,15 +1,14 @@
-import { SimulationManager } from './simulation.js';
-import { NodeCache } from './node-cache.js';
-import { EventEmitter } from './event-emitter.js';
+import { UIComponent } from '../base/ui-component.js';
+import { SimulationManager } from '../../simulation.js';
+import { NodeCache } from '../../node-cache.js';
 
 /**
  * SystemVisualizer - Visualizes IT systems and their dependencies as an interactive graph
  */
-export class SystemVisualizer extends EventEmitter {
-    constructor(containerId, dataManager) {
-        super();
-        this.containerId = containerId;
-        this.dataManager = dataManager;
+export class SystemVisualizer extends UIComponent {
+    constructor(containerId, dependencies = {}, options = {}) {
+        super(containerId, dependencies, options);
+        this.dataManager = this.dependencies.dataManager;
 
         // Getter for access to current data
         Object.defineProperty(this, 'data', {
@@ -63,32 +62,15 @@ export class SystemVisualizer extends EventEmitter {
 
         this.createVisualization();
         this.setupZoom();
-        this.attachEventListeners();
 
         // React to data changes
         this.dataManager.on('dataChanged', () => {
             // Recreate visualization
-            const container = document.getElementById(this.containerId);
+            const container = this.element;
             if (container) {
                 container.innerHTML = '';
                 this.createVisualization();
                 this.setupZoom();
-            }
-        });
-
-        // Update details panel on data changes
-        this.dataManager.on('dataChanged', () => {
-            const detailsPanel = document.getElementById('details-panel');
-            if (detailsPanel && detailsPanel.classList.contains('active')) {
-                const systemId = document.getElementById('detail-title').getAttribute('data-system-id');
-                if (systemId) {
-                    const updatedSystem = this.dataManager.getData().systems.find(sys => sys.id === systemId);
-                    if (updatedSystem) {
-                        this.showSystemDetails(updatedSystem);
-                    } else {
-                        detailsPanel.classList.remove('active');
-                    }
-                }
             }
         });
 
@@ -107,12 +89,7 @@ export class SystemVisualizer extends EventEmitter {
      * Creates the D3.js visualization
      */
     createVisualization() {
-        const container = document.getElementById(this.containerId);
-
-        if (!container) {
-            console.error(`Container with ID "${this.containerId}" not found`);
-            return;
-        }
+        const container = this.element;
 
         // Size and margins (fullscreen)
         this.width = container.clientWidth;
@@ -323,7 +300,7 @@ export class SystemVisualizer extends EventEmitter {
                     .duration(500)
                     .style("opacity", 0);
             })
-            .on("click", (event, d) => this.showSystemDetails(d));
+            .on("click", (event, d) => this.emit('systemClicked', {event, system: d}));
 
         // Text labels
         this.nodeElements.append("text")
@@ -514,6 +491,13 @@ export class SystemVisualizer extends EventEmitter {
         });
     }
 
+    resetZoom() {
+        this.svg.transition().duration(750).call(
+            this.zoom.transform,
+            d3.zoomIdentity
+        );
+    }
+
     /**
      * Sets up zoom functionality
      */
@@ -525,14 +509,6 @@ export class SystemVisualizer extends EventEmitter {
             });
 
         this.svg.call(this.zoom);
-
-        // Reset zoom button
-        document.getElementById("reset-zoom").addEventListener("click", () => {
-            this.svg.transition().duration(750).call(
-                this.zoom.transform,
-                d3.zoomIdentity
-            );
-        });
 
         // Save viewport state after zoom or pan
         this.zoom.on('end', () => {
@@ -830,110 +806,6 @@ export class SystemVisualizer extends EventEmitter {
     }
 
     /**
-     * Displays the system details in the overlay
-     */
-    showSystemDetails(system) {
-        const detailsPanel = document.getElementById('details-panel');
-        const detailsDiv = document.getElementById('system-details');
-        const detailTitle = document.getElementById('detail-title');
-
-        if (!detailsDiv || !detailsPanel || !detailTitle) {
-            console.error('Details container not found');
-            return;
-        }
-
-        // Set title
-        detailTitle.textContent = system.name;
-        detailTitle.setAttribute('data-system-id', system.id);
-
-        // Find incoming and outgoing dependencies
-        const incomingDeps = this.data.dependencies.filter(dep => dep.target === system.id);
-        const outgoingDeps = this.data.dependencies.filter(dep => dep.source === system.id);
-
-        let html = `
-        <div class="system-detail-card">
-            <p class="mb-1">${system.description}</p>
-            <div class="badge bg-${this.getCategoryClass(system.category)} mb-2">${system.category}</div>
-            <p><strong>Status:</strong> ${system.status}</p>
-            <p><strong>Known Usage:</strong> ${system.knownUsage ? 'Yes' : 'No'}</p>
-    `;
-
-        // Add group information - multi-group support
-        const groups = [];
-        if (Array.isArray(system.groups) && system.groups.length > 0) {
-            groups.push(...system.groups);
-        } else if (system.group && typeof system.group === 'string') {
-            groups.push(system.group);
-        }
-
-        if (groups.length > 0) {
-            html += `<p><strong>Groups:</strong> ${groups.map(group =>
-                `<span class="badge bg-info">${group}</span>`).join(' ')}</p>`;
-        }
-
-        if (system.tags && system.tags.length > 0) {
-            html += `<p><strong>Tags:</strong> ${system.tags.map(tag =>
-                `<span class="badge bg-secondary">${tag}</span>`).join(' ')}</p>`;
-        }
-
-        if (incomingDeps.length > 0) {
-            html += `<h6 class="mt-3">Incoming Connections</h6><ul class="list-group">`;
-            incomingDeps.forEach(dep => {
-                const source = this.data.systems.find(s => s.id === dep.source);
-                html += `
-                <li class="list-group-item">
-                    <div class="d-flex w-100 justify-content-between">
-                        <strong>${source ? source.name : 'Unknown'}</strong>
-                        <span class="badge bg-secondary">${dep.protocol || 'Unknown'}</span>
-                    </div>
-                    <small>${dep.description || 'No description'}</small>
-                </li>`;
-            });
-            html += `</ul>`;
-        }
-
-        if (outgoingDeps.length > 0) {
-            html += `<h6 class="mt-3">Outgoing Connections</h6><ul class="list-group">`;
-            outgoingDeps.forEach(dep => {
-                const target = this.data.systems.find(s => s.id === dep.target);
-                html += `
-                <li class="list-group-item">
-                    <div class="d-flex w-100 justify-content-between">
-                        <strong>${target ? target.name : 'Unknown'}</strong>
-                        <span class="badge bg-secondary">${dep.protocol || 'Unknown'}</span>
-                    </div>
-                    <small>${dep.description || 'No description'}</small>
-                </li>`;
-            });
-            html += `</ul>`;
-        }
-
-        if (incomingDeps.length === 0 && outgoingDeps.length === 0) {
-            html += `<div class="alert alert-warning mt-3">This system has no known connections.</div>`;
-        }
-
-        html += `</div>`;
-
-        detailsDiv.innerHTML = html;
-
-        // Show details panel
-        detailsPanel.classList.add('active');
-
-        // Adjust button state
-        const toggleFixButton = document.querySelector('.toggle-fix-btn');
-        const isFixed = this.isNodeFixed(system.id);
-        if (toggleFixButton) {
-            if (isFixed) {
-                toggleFixButton.classList.add('active');
-                toggleFixButton.title = 'Release position';
-            } else {
-                toggleFixButton.classList.remove('active');
-                toggleFixButton.title = 'Fix position';
-            }
-        }
-    }
-
-    /**
      * Helper function to determine the Bootstrap color for categories
      */
     getCategoryClass(category) {
@@ -951,7 +823,7 @@ export class SystemVisualizer extends EventEmitter {
      * Handles window resize events
      */
     handleResize() {
-        const container = document.getElementById(this.containerId);
+        const container = this.element;
         if (container && this.svg) {
             // Get new size
             this.width = container.clientWidth;
@@ -966,50 +838,6 @@ export class SystemVisualizer extends EventEmitter {
             if (this.simulationManager) {
                 this.simulationManager.updateSize(this.width, this.height);
             }
-        }
-    }
-
-    /**
-     * Adds event listeners for UI elements
-     */
-    attachEventListeners() {
-        // Filter for system categories
-        const categoryFilters = document.querySelectorAll('.category-filter');
-        if (categoryFilters.length > 0) {
-            categoryFilters.forEach(filter => {
-                filter.addEventListener('change', () => {
-                    const checkedCategories = Array.from(document.querySelectorAll('.category-filter:checked'))
-                        .map(checkbox => checkbox.value);
-                    this.activeFilters.categories = checkedCategories;
-                });
-            });
-        }
-
-        // Filter for system status
-        const statusFilters = document.querySelectorAll('.status-filter');
-        if (statusFilters.length > 0) {
-            statusFilters.forEach(filter => {
-                filter.addEventListener('change', () => {
-                    const checkedStatuses = Array.from(document.querySelectorAll('.status-filter:checked'))
-                        .map(checkbox => checkbox.value);
-                    this.activeFilters.knownUsage = checkedStatuses;
-                });
-            });
-        }
-
-        // Apply filters
-        const applyFiltersButton = document.getElementById('apply-filters');
-        if (applyFiltersButton) {
-            applyFiltersButton.addEventListener('click', () => {
-                this.applyFilters();
-                document.getElementById('filter-panel').classList.remove('active');
-            });
-        }
-
-        // Search field
-        const searchInput = document.getElementById('system-search');
-        if (searchInput) {
-            searchInput.addEventListener('input', () => this.performSearch(searchInput.value));
         }
     }
 
@@ -1043,72 +871,6 @@ export class SystemVisualizer extends EventEmitter {
             return true;
         }).map(system => ({ ...system }));
     }
-
-    /**
-     * Performs a search and displays the results
-     */
-    performSearch(query) {
-        const resultsContainer = document.getElementById('search-results');
-
-        if (!resultsContainer) {
-            console.error('Search results container not found');
-            return;
-        }
-
-        if (!query || query.trim() === '') {
-            resultsContainer.innerHTML = '';
-            return;
-        }
-
-        const searchTerm = query.toLowerCase().trim();
-
-        // Search systems
-        const results = this.data.systems.filter(system => {
-            return (
-                system.name.toLowerCase().includes(searchTerm) ||
-                system.description.toLowerCase().includes(searchTerm) ||
-                (system.tags && system.tags.some(tag => tag.toLowerCase().includes(searchTerm))) ||
-                (system.group && system.group.toLowerCase().includes(searchTerm)) // Also search in groups
-            );
-        });
-
-        // Display results
-        if (results.length === 0) {
-            resultsContainer.innerHTML = '<div class="alert alert-info">No systems found.</div>';
-        } else {
-            let html = '';
-
-            results.forEach(system => {
-                html += `
-                    <button class="list-group-item list-group-item-action" data-system-id="${system.id}">
-                        <div class="d-flex w-100 justify-content-between">
-                            <h6 class="mb-1">${system.name}</h6>
-                            <span class="badge bg-${this.getCategoryClass(system.category)}">${system.category}</span>
-                        </div>
-                        <small>${system.description}</small>
-                        ${system.group ? `<br><small><span class="badge bg-info">Group: ${system.group}</span></small>` : ''}
-                    </button>
-                `;
-            });
-
-            resultsContainer.innerHTML = html;
-
-            // Event listeners for clicks on search results
-            const resultItems = resultsContainer.querySelectorAll('.list-group-item');
-            resultItems.forEach(item => {
-                item.addEventListener('click', () => {
-                    const systemId = item.getAttribute('data-system-id');
-                    const system = this.data.systems.find(s => s.id === systemId);
-
-                    if (system) {
-                        this.showSystemDetails(system);
-                        document.getElementById('search-panel').classList.remove('active');
-                    }
-                });
-            });
-        }
-    }
-
     
     /**
      * Saves the current viewport's zoom and pan state to localStorage.

@@ -290,12 +290,6 @@ body.fullscreen-body {
     }
 }
 
-/* Upload/Download Buttons Hover-Effekt */
-#upload-data:hover,
-#download-data:hover {
-    background-color: #343a40;
-}
-
 /* Datei-Upload-Dialog-Hinweis */
 .file-drop-zone {
     border: 2px dashed #ccc;
@@ -343,8 +337,8 @@ body.connection-mode #visualization-container {
 }
 
 /* Button-Status im aktiven Modus */
-#toggle-connection-mode.active,
-#toggle-llm-chat.active {
+.toggle-connection-mode.active,
+.toggle-llm-chat.active {
     background-color: #ff9800;
     color: white;
 }

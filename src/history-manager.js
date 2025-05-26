@@ -1,8 +1,12 @@
+import { EventEmitter  } from "./event-emitter.js";
+import { showNotification } from './utilities.js';
+
 /**
  * HistoryManager 
  */
-export class HistoryManager {
+export class HistoryManager extends EventEmitter{
     constructor(dataManager, options = {}) {
+        super();
         this.dataManager = dataManager;
         this.options = {
             maxHistorySize: options.maxHistorySize || 50,
@@ -45,7 +49,7 @@ export class HistoryManager {
      */
     saveInitialState() {
         this.lastSavedState = this.deepClone(this.dataManager.getData());
-        this.updateUI();
+        this.emit('historyUpdated');
     }
 
     /**
@@ -96,7 +100,7 @@ export class HistoryManager {
         // Neuen aktuellen Zustand für nächstes Mal merken
         this.lastSavedState = this.deepClone(currentData);
         
-        this.updateUI();
+        this.emit('historyUpdated');
         console.log(`State change processed (${this.undoStack.length} undo states)`);
     }
 
@@ -132,8 +136,8 @@ export class HistoryManager {
         this.lastSavedState = this.deepClone(previousSnapshot.data); // Wichtig: auch lastSavedState updaten
         this.isPerformingHistoryOperation = false;
 
-        this.updateUI();
-        this.showNotification('Undone', 'info');
+        this.emit('historyUpdated');
+        showNotification('Undone', 'info');
 
         console.log('Undo performed');
         return true;
@@ -171,8 +175,8 @@ export class HistoryManager {
         this.lastSavedState = this.deepClone(nextSnapshot.data); // Wichtig: auch lastSavedState updaten
         this.isPerformingHistoryOperation = false;
 
-        this.updateUI();
-        this.showNotification('Redone', 'info');
+        this.emit('historyUpdated');
+        showNotification('Redone', 'info');
 
         console.log('Redo performed');
         return true;
@@ -199,7 +203,7 @@ export class HistoryManager {
         this.undoStack = [];
         this.redoStack = [];
         this.lastSavedState = this.deepClone(this.dataManager.getData());
-        this.updateUI();
+        this.emit('historyUpdated');
         console.log('History cleared');
     }
 
@@ -245,40 +249,6 @@ export class HistoryManager {
                 return;
             }
         });
-    }
-
-    /**
-     * UI Elemente aktualisieren
-     */
-    updateUI() {
-        const undoBtn = document.getElementById('undo-btn');
-        const redoBtn = document.getElementById('redo-btn');
-
-        if (undoBtn) {
-            undoBtn.disabled = !this.canUndo();
-            undoBtn.title = this.canUndo() ? 'Undo (Ctrl+Z)' : 'Nothing to undo';
-        }
-
-        if (redoBtn) {
-            redoBtn.disabled = !this.canRedo();
-            redoBtn.title = this.canRedo() ? 'Redo (Ctrl+Shift+Z)' : 'Nothing to redo';
-        }
-
-        const historyInfo = document.getElementById('history-info');
-        if (historyInfo) {
-            historyInfo.textContent = `${this.undoStack.length} actions | ${this.redoStack.length} redo`;
-        }
-    }
-
-    /**
-     * Notification anzeigen
-     */
-    showNotification(message, type = 'info') {
-        if (typeof window.showNotification === 'function') {
-            window.showNotification(message, type);
-        } else {
-            console.log(`[${type.toUpperCase()}] ${message}`);
-        }
     }
 
     /**
