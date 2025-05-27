@@ -21,6 +21,7 @@ import { UploadHelper } from './ui/components/upload.js';
 import { ResetData } from './ui/components/reset.js';
 import { ResetZoomHelper } from './ui/components/reset-zoom.js';
 import { DetailsOverlay } from './ui/components/details-overlay.js';
+import { MultiSelectComponent } from './ui/components/multi-select.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
     // Systemdaten laden und DataManager initialisieren
@@ -53,7 +54,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     const chatConfig = new ChatConfig('body', {llmManager, llmConfig});
     const chatInterface = new ChatInterface('.main-container', { llmManager, chatConfig, toolbar });
-    const deleteSystemComponent = new DeleteSystemComponent('body', { dataManager });
+    const deleteSystemComponent = new DeleteSystemComponent('body', { dataManager, visualizer });
+
+    const multiSelect = new MultiSelectComponent('body', {
+        dataManager,
+        visualizer,
+        toolbar
+    });
 
     [
         visualizer,
@@ -62,6 +69,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         chatConfig, 
         chatInterface, 
         deleteSystemComponent, 
+        multiSelect,
         new DeleteDependencyComponent('body', { dataManager, connectionMode }),
         new HistoryHelper('body', { historyManager, toolbar }),
         new SearchOverlay('.main-container', { toolbar, visualizer, dataManager }),

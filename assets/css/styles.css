@@ -572,3 +572,163 @@ body.connection-mode .node:hover circle:not(.connection-source) {
     }
 }
 
+/* Selected nodes styling */
+.node.selected circle {
+    stroke: white !important;
+    stroke-width: 4px !important;
+    filter: drop-shadow(0 0 8px rgba(255, 107, 53, 0.6));
+    animation: pulse-selection 2s ease-in-out infinite;
+}
+
+.node.selected text {
+    font-weight: bold;
+    fill: black;
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.9);
+}
+
+/* Pulse animation for selected nodes */
+@keyframes pulse-selection {
+    0%, 100% {
+        filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.6));
+    }
+    50% {
+        filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.8));
+    }
+}
+
+/* Selection rectangle styling */
+.selection-rect {
+    fill: rgba(255, 107, 53, 0.1);
+    stroke: #ff6b35;
+    stroke-width: 2;
+    stroke-dasharray: 5, 5;
+    pointer-events: none;
+}
+
+/* Multi-select mode cursor */
+body.multi-select-mode #visualization-container {
+    cursor: crosshair;
+}
+
+/* Hover effect for nodes in multi-select mode */
+body.multi-select-mode .node:hover circle:not(.selected) {
+    stroke: #ff6b35;
+    stroke-width: 3px;
+    opacity: 0.8;
+}
+
+/* Selection info overlay */
+.selection-info {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background-color: rgba(255, 107, 53, 0.9);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: bold;
+    pointer-events: none;
+    z-index: 150;
+    display: none;
+}
+
+.selection-info.visible {
+    display: block;
+}
+
+/* Rectangle selection mode active button */
+.toggle-rect-select.active {
+    background-color: #6f42c1;
+    color: white;
+    border-color: #6f42c1;
+}
+
+/* Prevent text selection during rectangle drawing */
+body.multi-select-mode {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+/* Selection rectangle animation */
+.selection-rect {
+    animation: selection-rect-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes selection-rect-pulse {
+    0%, 100% {
+        stroke-opacity: 0.8;
+        fill-opacity: 0.1;
+    }
+    50% {
+        stroke-opacity: 1;
+        fill-opacity: 0.15;
+    }
+}
+
+/* Improved selection info positioning and styling */
+.selection-info {
+    position: fixed;
+    top: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #6f42c1, #8b5cf6);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 600;
+    pointer-events: none;
+    z-index: 200;
+    box-shadow: 0 4px 12px rgba(111, 66, 193, 0.3);
+    opacity: 0;
+    transform: translateX(-50%) translateY(-10px);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.selection-info.visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* Node hover effects in multi-select mode */
+body.multi-select-mode .node:hover {
+    cursor: crosshair;
+}
+
+body.multi-select-mode .node:hover circle {
+    stroke: #6f42c1;
+    stroke-width: 3px;
+    stroke-opacity: 0.8;
+    transition: all 0.2s ease;
+}
+
+/* Disable pointer events on text during selection */
+body.multi-select-mode text {
+    pointer-events: none;
+}
+
+/* Multi-select toolbar button group styling */
+.btn-group .toggle-rect-select {
+    border-left: 1px solid rgba(255,255,255,0.2);
+}
+
+/* Selection count badge for toolbar button */
+.toggle-rect-select.active::after {
+    content: attr(data-count);
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #dc3545;
+    color: white;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+}

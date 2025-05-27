@@ -49,6 +49,46 @@ export class SystemVisualizer extends UIComponent {
         this.linkElements = null;
         this.groupHulls = null;
         this.groupLabels = null;
+
+        // Multi-Selection state
+        this.selectedNodes = new Set(); // IDs der ausgewählten Knoten
+        this.isMultiSelectActive = false; // Ob Multi-Select Modus aktiv ist
+        this.lastSelectedNode = null; // Für Shift-Selection ranges
+    }
+
+    /**
+     * Returns the currently selected node IDs
+     * @returns {Set<string>} Set of selected node IDs
+     */
+    getSelectedNodeIds() {
+        return new Set(this.selectedNodes);
+    }
+
+    /**
+     * Returns the currently selected system objects
+     * @returns {Array<Object>} Array of selected system objects
+     */
+    getSelectedSystems() {
+        return Array.from(this.selectedNodes)
+            .map(id => this.data.systems.find(system => system.id === id))
+            .filter(system => system !== undefined);
+    }
+
+    /**
+     * Checks if a node is currently selected
+     * @param {string} systemId - The ID of the system to check
+     * @returns {boolean} True if the node is selected
+     */
+    isNodeSelected(systemId) {
+        return this.selectedNodes.has(systemId);
+    }
+
+    /**
+     * Returns the number of currently selected nodes
+     * @returns {number} Number of selected nodes
+     */
+    getSelectionCount() {
+        return this.selectedNodes.size;
     }
 
     /**
@@ -63,14 +103,35 @@ export class SystemVisualizer extends UIComponent {
         this.createVisualization();
         this.setupZoom();
 
+        // Setup keyboard shortcuts for multi-selection
+        this.setupKeyboardShortcuts();
+
         // React to data changes
-        this.dataManager.on('dataChanged', () => {
+        this.dataManager.on('dataChanged', () => {    // Check if any selected nodes no longer exist
+            const currentSystemIds = new Set(this.data.systems.map(sys => sys.id));
+            const invalidSelectedNodes = Array.from(this.selectedNodes)
+                .filter(nodeId => !currentSystemIds.has(nodeId));
+
+            // Remove invalid selections
+            if (invalidSelectedNodes.length > 0) {
+                invalidSelectedNodes.forEach(nodeId => {
+                    this.selectedNodes.delete(nodeId);
+                });
+
+                this.emit('selectionChanged', {
+                    selected: Array.from(this.selectedNodes),
+                    added: [],
+                    removed: invalidSelectedNodes
+                });
+            }
+
             // Recreate visualization
             const container = this.element;
             if (container) {
                 container.innerHTML = '';
                 this.createVisualization();
                 this.setupZoom();
+                this.setupKeyboardShortcuts();
             }
         });
 
@@ -130,7 +191,7 @@ export class SystemVisualizer extends UIComponent {
             collisionRadius: 60,
             groupForceStrength: 0.5,
             onTick: () => this.onSimulationTick(),
-            onToggleFixed:(id, state) => {
+            onToggleFixed: (id, state) => {
                 this.emit('toggleFixed', { id, state });
             },
         });
@@ -234,6 +295,9 @@ export class SystemVisualizer extends UIComponent {
                 const classes = ["node"];
                 if (!d.knownUsage) classes.push("unknown-usage");
 
+                // Add selection class if node is selected
+                if (this.isNodeSelected(d.id)) classes.push("selected");
+
                 // Add multiple group classes
                 const nodeGroups = this.getNodeGroups(d);
                 nodeGroups.forEach(group => {
@@ -300,7 +364,10 @@ export class SystemVisualizer extends UIComponent {
                     .duration(500)
                     .style("opacity", 0);
             })
-            .on("click", (event, d) => this.emit('systemClicked', {event, system: d}));
+            .on("click", (event, d) => {
+                // Neue Multi-Select Logik
+                this.handleNodeClick(event, d);
+            });
 
         // Text labels
         this.nodeElements.append("text")
@@ -489,6 +556,8 @@ export class SystemVisualizer extends UIComponent {
 
             return `translate(${centroid[0]},${centroid[1] - 60})`;
         });
+
+        this.updateAllNodeVisualSelections();
     }
 
     resetZoom() {
@@ -845,10 +914,72 @@ export class SystemVisualizer extends UIComponent {
      * Applies filters to the visualization
      */
     applyFilters() {
+        // Clear selection for nodes that will be filtered out
+        const filteredNodeIds = new Set(this.getFilteredNodes().map(node => node.id));
+        const nodesToRemoveFromSelection = Array.from(this.selectedNodes)
+            .filter(nodeId => !filteredNodeIds.has(nodeId));
+
+        // Remove filtered nodes from selection
+        nodesToRemoveFromSelection.forEach(nodeId => {
+            this.removeFromSelection(nodeId, false);
+        });
+
+        // Emit selection change if nodes were removed
+        if (nodesToRemoveFromSelection.length > 0) {
+            this.emit('selectionChanged', {
+                selected: Array.from(this.selectedNodes),
+                added: [],
+                removed: nodesToRemoveFromSelection
+            });
+        }
+
         if (this.svg) {
             this.svg.remove();
             this.createVisualization();
             this.setupZoom();
+        }
+    }
+
+    /**
+     * Sets up keyboard shortcuts for multi-selection
+     */
+    setupKeyboardShortcuts() {
+        document.addEventListener('keydown', (event) => {
+            // Only handle shortcuts when visualization container is focused/active
+            const visualizationContainer = document.getElementById('visualization-container');
+            if (!visualizationContainer || !document.activeElement) return;
+
+            // Check if we're in an input field or modal
+            const activeTag = document.activeElement.tagName.toLowerCase();
+            if (['input', 'textarea', 'select'].includes(activeTag)) return;
+
+            switch (event.key) {
+                case 'Escape':
+                    if (this.getSelectionCount() > 0) {
+                        event.preventDefault();
+                        this.clearSelection();
+                    }
+                    break;
+
+                case 'a':
+                case 'A':
+                    if (event.ctrlKey || event.metaKey) {
+                        event.preventDefault();
+                        this.selectAll();
+                    }
+                    break;
+            }
+        });
+
+        // Handle clicks on empty space to clear selection
+        if (this.svg) {
+            this.svg.on('click', (event) => {
+                // Only clear if clicked on SVG background, not on nodes/links
+                if (event.target === event.currentTarget ||
+                    event.target.tagName === 'svg') {
+                    this.clearSelection();
+                }
+            });
         }
     }
 
@@ -871,7 +1002,7 @@ export class SystemVisualizer extends UIComponent {
             return true;
         }).map(system => ({ ...system }));
     }
-    
+
     /**
      * Saves the current viewport's zoom and pan state to localStorage.
      * The state includes the x and y translation, as well as the zoom scale (k),
@@ -889,7 +1020,7 @@ export class SystemVisualizer extends UIComponent {
         }
     }
 
-    
+
     /**
      * Restores the viewport state of the SVG element by retrieving the last saved
      * zoom and pan transform from localStorage and applying it using D3's zoom behavior.
@@ -928,5 +1059,306 @@ export class SystemVisualizer extends UIComponent {
             this.nodeElements.call(this.simulationManager.createDragBehavior());
         }
         this.dragDisabled = false;
+    }
+
+    /**
+ * Adds a node to the selection
+ * @param {string} systemId - The ID of the system to add
+ * @param {boolean} emit - Whether to emit selection events
+ */
+    addToSelection(systemId, emit = true) {
+        if (!systemId || this.selectedNodes.has(systemId)) return;
+
+        this.selectedNodes.add(systemId);
+        this.lastSelectedNode = systemId;
+        this.updateNodeVisualSelection(systemId, true);
+
+        if (emit) {
+            this.emit('selectionChanged', {
+                selected: Array.from(this.selectedNodes),
+                added: [systemId],
+                removed: []
+            });
+        }
+    }
+
+    /**
+     * Removes a node from the selection
+     * @param {string} systemId - The ID of the system to remove
+     * @param {boolean} emit - Whether to emit selection events
+     */
+    removeFromSelection(systemId, emit = true) {
+        if (!systemId || !this.selectedNodes.has(systemId)) return;
+
+        this.selectedNodes.delete(systemId);
+        if (this.lastSelectedNode === systemId) {
+            this.lastSelectedNode = this.selectedNodes.size > 0 ?
+                Array.from(this.selectedNodes)[this.selectedNodes.size - 1] : null;
+        }
+        this.updateNodeVisualSelection(systemId, false);
+
+        if (emit) {
+            this.emit('selectionChanged', {
+                selected: Array.from(this.selectedNodes),
+                added: [],
+                removed: [systemId]
+            });
+        }
+    }
+
+    /**
+     * Toggles selection of a node
+     * @param {string} systemId - The ID of the system to toggle
+     * @param {boolean} emit - Whether to emit selection events
+     */
+    toggleSelection(systemId, emit = true) {
+        if (this.isNodeSelected(systemId)) {
+            this.removeFromSelection(systemId, emit);
+        } else {
+            this.addToSelection(systemId, emit);
+        }
+    }
+
+    /**
+     * Clears all selections
+     * @param {boolean} emit - Whether to emit selection events
+     */
+    clearSelection(emit = true) {
+        if (this.selectedNodes.size === 0) return;
+
+        const previousSelection = Array.from(this.selectedNodes);
+
+        // Update visual state for all selected nodes
+        this.selectedNodes.forEach(systemId => {
+            this.updateNodeVisualSelection(systemId, false);
+        });
+
+        this.selectedNodes.clear();
+        this.lastSelectedNode = null;
+
+        if (emit) {
+            this.emit('selectionChanged', {
+                selected: [],
+                added: [],
+                removed: previousSelection
+            });
+        }
+    }
+
+    /**
+     * Selects all visible nodes
+     * @param {boolean} emit - Whether to emit selection events
+     */
+    selectAll(emit = true) {
+        const allNodeIds = this.getFilteredNodes().map(node => node.id);
+        const previousSelection = Array.from(this.selectedNodes);
+
+        // Clear existing selection without emitting
+        this.clearSelection(false);
+
+        // Add all nodes to selection
+        allNodeIds.forEach(systemId => {
+            this.addToSelection(systemId, false);
+        });
+
+        if (emit) {
+            this.emit('selectionChanged', {
+                selected: allNodeIds,
+                added: allNodeIds.filter(id => !previousSelection.includes(id)),
+                removed: previousSelection.filter(id => !allNodeIds.includes(id))
+            });
+        }
+    }
+
+    /**
+     * Updates the visual selection state of a node
+     * @param {string} systemId - The ID of the system to update
+     * @param {boolean} isSelected - Whether the node should appear selected
+     */
+    updateNodeVisualSelection(systemId, isSelected) {
+        if (!this.nodeElements) return;
+
+        // Find the node element
+        const nodeElement = this.nodeElements.filter(d => d.id === systemId);
+
+        if (nodeElement.empty()) return;
+
+        // Update CSS class
+        nodeElement.classed('selected', isSelected);
+
+        // Optional: Update stroke for better visual feedback
+        nodeElement.select('circle')
+            .attr('stroke-width', isSelected ? 4 :
+                (this.getNodeGroups(nodeElement.datum()).length > 0 ? 3 : 2));
+    }
+
+    /**
+     * Updates visual selection for all nodes (useful after re-rendering)
+     */
+    updateAllNodeVisualSelections() {
+        if (!this.nodeElements) return;
+
+        this.nodeElements.each((d) => {
+            this.updateNodeVisualSelection(d.id, this.isNodeSelected(d.id));
+        });
+    }
+
+    /**
+     * Handles node click events with multi-selection support
+     * @param {Event} event - The click event
+     * @param {Object} nodeData - The data of the clicked node
+     */
+    handleNodeClick(event, nodeData) {
+        event.stopPropagation();
+
+        const systemId = nodeData.id;
+        const isShiftPressed = event.shiftKey;
+        const isCtrlPressed = event.ctrlKey || event.metaKey;
+
+        // Multi-select behavior
+        if (isShiftPressed || isCtrlPressed) {
+            this.toggleSelection(systemId);
+
+            // Emit event for multi-selection
+            if (this.getSelectionCount() > 1) {
+                this.emit('systemsSelected', {
+                    event,
+                    systems: this.getSelectedSystems(),
+                    primary: nodeData
+                });
+            } else {
+                // Single selection after toggle
+                this.emit('systemClicked', { event, system: nodeData });
+            }
+        } else {
+            // Normal click - clear other selections
+            const wasSelected = this.isNodeSelected(systemId);
+            this.clearSelection(false);
+
+            if (!wasSelected) {
+                this.addToSelection(systemId);
+            }
+
+            // Always emit single system click for normal clicks
+            this.emit('systemClicked', { event, system: nodeData });
+        }
+    }
+
+    /**
+     * Toggles fixed state for all selected nodes
+     * @returns {boolean} The new fixed state (true if any node became fixed)
+     */
+    toggleSelectedNodesFixed() {
+        const selectedIds = Array.from(this.selectedNodes);
+        if (selectedIds.length === 0) return false;
+
+        // Check current state - if any node is not fixed, fix all; otherwise unfix all
+        const hasUnfixedNodes = selectedIds.some(id => !this.isNodeFixed(id));
+        const newFixedState = hasUnfixedNodes;
+
+        // Apply to all selected nodes
+        selectedIds.forEach(systemId => {
+            this.simulationManager.setNodeFixed(systemId, newFixedState);
+        });
+
+        // Emit event for UI feedback
+        this.emit('selectedNodesFixedToggle', {
+            systems: this.getSelectedSystems(),
+            isFixed: newFixedState,
+            count: selectedIds.length
+        });
+
+        return newFixedState;
+    }
+
+    /**
+     * Centers the view on selected nodes
+     */
+    centerOnSelection() {
+        const selectedIds = Array.from(this.selectedNodes);
+        if (selectedIds.length === 0) return;
+
+        // Get positions of selected nodes
+        const nodes = selectedIds
+            .map(id => this.simulationManager.getNodeById(id))
+            .filter(node => node);
+
+        if (nodes.length === 0) return;
+
+        // Calculate bounding box
+        let minX = Infinity, maxX = -Infinity;
+        let minY = Infinity, maxY = -Infinity;
+
+        nodes.forEach(node => {
+            minX = Math.min(minX, node.x);
+            maxX = Math.max(maxX, node.x);
+            minY = Math.min(minY, node.y);
+            maxY = Math.max(maxY, node.y);
+        });
+
+        // Calculate center and scale
+        const centerX = (minX + maxX) / 2;
+        const centerY = (minY + maxY) / 2;
+        const width = maxX - minX + 200; // Add padding
+        const height = maxY - minY + 200;
+
+        // Calculate scale to fit selection
+        const scale = Math.min(
+            this.width / width,
+            this.height / height,
+            2 // Max zoom level
+        );
+
+        // Calculate translation
+        const translateX = this.width / 2 - centerX * scale;
+        const translateY = this.height / 2 - centerY * scale;
+
+        // Apply transform
+        if (this.svg && this.zoom) {
+            const transform = d3.zoomIdentity
+                .translate(translateX, translateY)
+                .scale(scale);
+
+            this.svg.transition()
+                .duration(750)
+                .call(this.zoom.transform, transform);
+        }
+    }
+
+    /**
+     * Groups selected nodes by their common properties
+     * @returns {Object} Object with grouped properties
+     */
+    getSelectedNodesGroupedProperties() {
+        const selectedSystems = this.getSelectedSystems();
+        if (selectedSystems.length === 0) return {};
+
+        const grouped = {
+            categories: {},
+            statuses: {},
+            groups: {},
+            knownUsage: { true: 0, false: 0 }
+        };
+
+        selectedSystems.forEach(system => {
+            // Count categories
+            grouped.categories[system.category] =
+                (grouped.categories[system.category] || 0) + 1;
+
+            // Count statuses
+            grouped.statuses[system.status] =
+                (grouped.statuses[system.status] || 0) + 1;
+
+            // Count known usage
+            grouped.knownUsage[system.knownUsage] += 1;
+
+            // Count groups
+            const systemGroups = this.getNodeGroups(system);
+            systemGroups.forEach(group => {
+                grouped.groups[group] = (grouped.groups[group] || 0) + 1;
+            });
+        });
+
+        return grouped;
     }
 }
